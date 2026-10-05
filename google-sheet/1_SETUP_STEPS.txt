@@ -96,8 +96,15 @@ new word goes into your Library.
  3. WordNest > Test Gemini. You should see "Gemini works".
  4. Make sure the newest script is deployed (section B, step 4).
 
-That's all. In the app, tap the small round status icon next to your
-streak to see "Smart picks: Gemini via your sheet, 3 of 25 used today".
+That's all. Nobody using the app ever sees a key or a setting:
+  - Everyone gets smart picks, signed in or not (one shared daily cap).
+  - The status icon next to the streak spins with "Finding new words"
+    while Gemini works; tap it to see "3 of 25 picks used today".
+  - Picked words show a small "Picked for you" tag, and a short note
+    says "12 new words picked for you" when a batch arrives.
+No key yet? The script menu and 'Set Gemini key' are optional: you can
+also add GEMINI_API_KEY under Apps Script > Project Settings (gear) >
+Script properties.
 
 Staying inside the free limit (already built in):
   - Gemini is only asked when fewer than 10 good-fit words are left.
@@ -109,6 +116,10 @@ Staying inside the free limit (already built in):
     uses free dictionary words meanwhile.
   - To change the daily cap: Extensions > Apps Script > Project
     Settings (gear) > Script properties > add AI_DAILY_LIMIT, e.g. 15.
+  - Words people type in themselves ("Add your own word") have their
+    own cap, ADD_DAILY_LIMIT (default 40 a day). If the word is already
+    in the Library it costs nothing. Without Gemini, free dictionaries
+    fill in the details.
   - To change the model: add GEMINI_MODEL, e.g. gemini-2.5-flash-lite.
     You can see your real free limits at https://aistudio.google.com
     (they are per Google project and reset at midnight Pacific time).
@@ -155,6 +166,9 @@ Library
   haven't seen yet, matching their goals first.
   You CAN edit meanings or Hindi here; the fix reaches anyone who
   gets that word next.
+  Words people typed in themselves have Context "Added by users" and
+  Source "Added by user", with their name in "Added by". The Words tab
+  also has a Source column: "Added by user" or "App".
 
 
 --------------------------------------------------------------

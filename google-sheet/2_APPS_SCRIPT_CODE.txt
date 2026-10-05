@@ -53,7 +53,7 @@ var USERS_HEADERS = ['User', 'PIN (hashed)', 'Last sync', 'Learning', 'Mastered'
   'Streak (days)', 'Days practiced', 'Last active', 'Data parts', 'App data 1'];
 
 var WORDS_HEADERS = ['User', 'Word', 'Status', 'Box (0-7)', 'Next revision', 'Right', 'Wrong',
-  'Accuracy', 'Added', 'Last revised'];
+  'Accuracy', 'Added', 'Last revised', 'Source'];
 
 var LIB_HEADERS = ['Context', 'Word', 'Level (1-5)', 'Meaning', 'Say it', 'IPA', 'Part of speech',
   'Past', 'Present', 'Future', 'Other examples', 'Hindi', 'Hindi meaning', 'Source',
@@ -90,13 +90,15 @@ var WORDS_NOTES = ['Whose word this is. Matches the User column in Users.',
   'When the word comes back in daily revision. Amber means due today or overdue.',
   'Right answers in quizzes.', 'Wrong answers in quizzes.',
   'Right / (Right + Wrong). A formula, so it always matches the two columns.',
-  'The day the word was first marked in the app.', 'The last day it was in a quiz.'];
+  'The day the word was first marked in the app.', 'The last day it was in a quiz.',
+  '"Added by user" when the person typed the word in themselves; "App" when the app picked it.'];
 
 /* Smart word picks with Gemini. Change these to tune cost and speed. */
 var AI = {
   MODEL: 'gemini-2.5-flash',          // main model (free tier)
   FALLBACK_MODEL: 'gemini-2.5-flash-lite',
   DAILY_LIMIT: 25,                    // Gemini calls per day for the whole sheet (12 words each)
+  ADD_DAILY_LIMIT: 40,                // words people type in themselves, filled by Gemini, per day
   MIN_GAP_SECONDS: 30,                // never call more often than this
   COOLDOWN_MINUTES: 5,                // pause after Google says "too many requests"
   WORDS_PER_CALL: 12
@@ -123,6 +125,14 @@ function doPost(e) {
   try {
     lock.waitLock(15000);
     var req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+
+    // Smart picks work for everyone, signed in or not. The daily cap is shared.
+    if ((req.action === 'suggest' || req.action === 'ai_status' || req.action === 'enrich') && !req.pin) {
+      lock.releaseLock();
+      if (req.action === 'enrich') return out(enrichWord(req));
+      return out(req.action === 'suggest' ? suggestWords('guest', req) : { ok: true, ai: aiUsage() });
+    }
+
     var user = String(req.user || '').trim().toLowerCase();
     var pin = String(req.pin || '');
 
@@ -152,6 +162,11 @@ function doPost(e) {
     }
 
     if (req.action === 'ai_status') return out({ ok: true, ai: aiUsage() });
+
+    if (req.action === 'enrich') {
+      lock.releaseLock();
+      return out(enrichWord(req));
+    }
 
     if (req.action === 'sync') {
       var merged = mergeSnap(req.data || null, readData(sheet, row));
@@ -343,7 +358,7 @@ function formatWords(sheet) {
   sheet.getRange('E:E').setNumberFormat('d mmm yyyy');
   sheet.getRange('I:J').setNumberFormat('d mmm yyyy');
   sheet.getRange('H:H').setNumberFormat('0%');
-  var widths = [110, 170, 100, 85, 120, 70, 70, 90, 110, 110];
+  var widths = [110, 170, 100, 85, 120, 70, 70, 90, 110, 110, 120];
   for (var i = 0; i < widths.length; i++) sheet.setColumnWidth(i + 1, widths[i]);
   sheet.getRange(1, 1, 1, WORDS_NOTES.length).setNotes([WORDS_NOTES]);
   var rule = function (formula, range, bg, fg, bold) {
@@ -370,6 +385,7 @@ var STATUS_ORDER = { learning: 0, mastered: 1, known: 2 };
 
 function writeWords(user, snap) {
   var sheet = getWordsSheet();
+  ensureSize(sheet, 1, WORDS_HEADERS.length);
   var words = (snap && snap.state && snap.state.words) || {};
   var last = sheet.getLastRow();
   var others = last >= 2
@@ -380,10 +396,16 @@ function writeWords(user, snap) {
     return (STATUS_ORDER[a.s] - STATUS_ORDER[b.s]) || String(a.due || '9').localeCompare(String(b.due || '9')) || String(a.w).localeCompare(String(b.w));
   }).map(function (r) {
     return [user, r.w, STATUS_LABEL[r.s] || r.s, r.s === 'known' ? '' : r.box,
-      r.s === 'known' ? '' : toDate(r.due), r.ok || 0, r.bad || 0, '', toDate(r.add), toDate(r.last)];
+      r.s === 'known' ? '' : toDate(r.due), r.ok || 0, r.bad || 0, '', toDate(r.add), toDate(r.last),
+      r.mine ? 'Added by user' : 'App'];
   });
 
-  var rows = others.concat(mine);
+  var rows = others.concat(mine).map(function (r) {
+    while (r.length < WORDS_HEADERS.length) r.push(''); // rows from before the Source column
+    return r;
+  });
+  ensureSize(sheet, 1, WORDS_HEADERS.length);
+  sheet.getRange(1, 1, 1, WORDS_HEADERS.length).setValues([WORDS_HEADERS]); // keeps the header row complete
   if (last >= 2) sheet.getRange(2, 1, last - 1, WORDS_HEADERS.length).clearContent();
   if (!rows.length) return;
   ensureSize(sheet, rows.length + 1, WORDS_HEADERS.length);
@@ -726,6 +748,66 @@ function cleanAiWords(list, avoid, goalTags, contextNames) {
     });
   });
   return out;
+}
+
+/* ---------- Words people type in themselves ---------- */
+
+/**
+ * Action "enrich": fill in a full card for one word a person typed.
+ * 1) The Library already has it: return that (free, instant).
+ * 2) Otherwise ask Gemini for one card (own daily cap, separate from auto picks).
+ * The word reaches the Library on the next sync, marked "Added by user".
+ */
+function enrichWord(req) {
+  var word = String(req.word || '').trim().replace(/\s+/g, ' ');
+  if (!/^[A-Za-z][A-Za-z' -]{0,39}$/.test(word)) return { ok: false, code: 'invalid', error: 'Use letters only, up to 40.' };
+  var k = word.toLowerCase();
+
+  var lib = getLibrarySheet();
+  var last = lib.getLastRow();
+  if (last >= 2) {
+    var rows = lib.getRange(2, 1, last - 1, LIB_HEADERS.length).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      if (String(r[L.WORD]).toLowerCase() === k && r[L.MEANING]) {
+        return { ok: true, source: 'library', card: {
+          id: String(r[L.KEY] || ''), w: String(r[L.WORD]), p: r[L.POS], ipa: r[L.IPA], say: r[L.SAY], m: r[L.MEANING],
+          past: r[L.PAST], present: r[L.PRESENT], future: r[L.FUTURE], other: r[L.OTHER],
+          hi: r[L.HI], him: r[L.HIM], d: Number(r[L.LEVEL]) || 3, t: String(r[L.TOPICS] || '') } };
+      }
+    }
+  }
+
+  var p = props();
+  var apiKey = p.getProperty('GEMINI_API_KEY');
+  if (!apiKey) return { ok: false, code: 'no_key' };
+  var today = key(new Date());
+  var used = p.getProperty('add_day') === today ? Number(p.getProperty('add_used') || 0) : 0;
+  var limit = Number(p.getProperty('ADD_DAILY_LIMIT') || AI.ADD_DAILY_LIMIT);
+  if (used >= limit) return { ok: false, code: 'ai_limit' };
+  if (Date.now() < Number(p.getProperty('ai_cooldown') || 0)) return { ok: false, code: 'ai_busy' };
+
+  var prompt = 'Fill in one vocabulary card for the English word or phrase "' + word + '".\n' +
+    String(req.context || '').slice(0, 2000) + '\n' +
+    'Rules: "meaning" in very simple English, at most 15 words, without the word itself. ' +
+    '"present", "past", "future": short natural sentences (at most 12 words) from the learner\'s work or daily life, each containing the word. ' +
+    '"note": when they would use it, at most 10 words. "say": easy respelling, stressed part in capitals. "ipa": British IPA in slashes. ' +
+    '"hindi": Hindi in Devanagari, "hindiMeaning": short Hindi explanation. "level": 1 to 5. "goals": ["mine"]. No dashes as punctuation.\n' +
+    'If it is not a real English word or phrase, return {"words": []}. Otherwise return exactly one item, with "word" spelled exactly as: ' + word;
+  var result;
+  try {
+    result = callGemini(apiKey, prompt, WORD_SCHEMA);
+  } catch (e) {
+    if (e.code === 'ai_busy') p.setProperty('ai_cooldown', String(Date.now() + AI.COOLDOWN_MINUTES * 60000));
+    return { ok: false, code: e.code || 'ai_error', error: e.message };
+  }
+  if (p.getProperty('add_day') !== today) { p.setProperty('add_day', today); p.setProperty('add_used', '0'); }
+  p.setProperty('add_used', String(Number(p.getProperty('add_used') || 0) + 1));
+
+  var list = ((result.json && result.json.words) || []).filter(function (x) { return String(x.word || '').trim().toLowerCase() === k; });
+  var cards = cleanAiWords(list, {}, { mine: ['mine'] }, { mine: 'Added by users' });
+  if (!cards.length) return { ok: false, code: 'not_found' };
+  return { ok: true, source: 'gemini', card: cards[0] };
 }
 
 /* ---------- Helpers ---------- */

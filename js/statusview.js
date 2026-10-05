@@ -30,16 +30,16 @@ function wordsLine() {
 
 function picksLine(store) {
   const w = status.get().words;
-  if (CONFIG.PREVIEW) return ['Claude picks words for your goals here.'];
+  if (CONFIG.PREVIEW) return ['On. Claude picks words for your goals here.'];
   if (w.ai && w.ai.on) {
-    const out = [`Gemini via your sheet: ${w.ai.used} of ${w.ai.limit} used today`];
-    if (w.aiPausedUntil > Date.now()) out.push('Pausing a few minutes to stay inside the free limit.');
-    else if (w.ai.used >= w.ai.limit) out.push('Free dictionary words until tomorrow.');
+    const out = ['On. New words are picked from your goals and answers.'];
+    if (w.aiPausedUntil > Date.now()) out.push('Taking a short break. Back in a few minutes.');
+    else if (w.ai.used >= w.ai.limit) out.push("Today's picks are used up. Dictionary words until tomorrow.");
+    else out.push(`${w.ai.used} of ${w.ai.limit} picks used today`);
     return out;
   }
-  if (store.ai.key) return ['Gemini with the key on this phone.'];
-  if (syncEnabled(store)) return ['Free dictionary words. Add a Gemini key in the sheet for smarter picks.'];
-  return ['Free dictionary words. See Me > Smarter word picks.'];
+  if (store.ai.key) return ['On, using the key saved on this phone.'];
+  return ['Using dictionary words right now.'];
 }
 
 export function openStatusSheet(store, engine) {

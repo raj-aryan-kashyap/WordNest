@@ -9,6 +9,7 @@ import { plural, haptic, wait, prefersReducedMotion } from '../utils.js';
 import { icon, toast, speak, openSearch } from '../ui.js';
 import { renderEntry, renderEntrySkeleton, renderQuestion, renderFeedback, streakPill, stateBlock, statusChip } from '../components.js';
 import { status } from '../status.js';
+import { openAddWord } from '../addword.js';
 import { reviewStatus, pickRecheck, grade } from '../srs.js';
 import { buildQuestion } from '../quiz.js';
 import { CONFIG } from '../config.js';
@@ -166,6 +167,7 @@ export function mount(root, ctx) {
       case 'known': decide(true); break;
       case 'hear': speak(card?.w || check?.card.w, card?.audio, el); break;
       case 'search': if (card) openSearch(card.w); break;
+      case 'add-own': openAddWord({ store, engine, onAdded: () => draw() }); break;
       case 'answer': answerCheck(Number(el.dataset.i)); break;
       case 'continue': check = null; loadNext(); break;
       case 'retry': loadNext(); break;

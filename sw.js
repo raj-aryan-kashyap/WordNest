@@ -1,14 +1,15 @@
 /**
  * Service worker: makes the app open fast and work offline.
- * - App files: served from cache, refreshed in the background.
+ * - App files: served from this version's cache only, so a phone never mixes
+ *   old and new files. A new VERSION downloads the full new set, then switches.
  * - Google Fonts: cached after first use.
  * - Word APIs and sync: always network (never cached here).
  * Bump VERSION when you deploy changes so phones pick them up.
  */
-const VERSION = 'wn-1.4.0';
+const VERSION = 'wn-1.6.0';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/styles.css',
-  './js/app.js', './js/config.js', './js/goals.js', './js/library.js', './js/status.js', './js/statusview.js', './js/utils.js', './js/store.js', './js/srs.js',
+  './js/app.js', './js/config.js', './js/goals.js', './js/library.js', './js/status.js', './js/statusview.js', './js/addword.js', './js/utils.js', './js/store.js', './js/srs.js',
   './js/engine.js', './js/sources.js', './js/quiz.js', './js/sync.js', './js/ui.js', './js/components.js',
   './js/data/seed.js',
   './js/screens/onboarding.js', './js/screens/home.js', './js/screens/learn.js',
@@ -53,7 +54,13 @@ self.addEventListener('fetch', (event) => {
       event.respondWith(fetch(request).catch(() => caches.match('./index.html')));
       return;
     }
-    event.respondWith(staleWhileRevalidate(request, VERSION));
+    event.respondWith(
+      caches.open(VERSION).then((cache) => cache.match(request, { ignoreSearch: true })
+        .then((hit) => hit || fetch(request).then((res) => {
+          if (res && res.ok) cache.put(request, res.clone());
+          return res;
+        }))),
+    );
     return;
   }
 

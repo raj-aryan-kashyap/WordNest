@@ -11,7 +11,7 @@ import { activeGoals } from './goals.js';
 import { TOPIC_LABEL } from './engine.js';
 
 const SENT_KEY = 'wn.libsent.v1';
-const SOURCE = { seed: 'Starter pack', ai: 'AI', datamuse: 'Dictionary', library: 'Library' };
+const SOURCE = { seed: 'Starter pack', ai: 'AI', datamuse: 'Dictionary', library: 'Library', user: 'Added by user' };
 const seedMap = new Map(SEED.map((c) => [c.id, c]));
 
 function readSent() {
@@ -28,6 +28,7 @@ export function resetLibrarySent() {
 
 /** The Library's Context column: the user's own goal text, or the topic name. */
 export function contextLabel(card, profile) {
+  if (card.src === 'user') return 'Added by users';
   const goals = activeGoals(profile);
   for (const t of card.t || []) {
     if (t.startsWith('c:')) {
@@ -57,7 +58,7 @@ export function pendingLibrary(store, max = 300) {
     out.push({
       id: r.id, w: c.w, p: c.p || '', d: c.d || 3, m: c.m || '', say: c.say || '', ipa: c.ipa || '',
       ...ex, other: other.join(' | '), hi: c.hi || '', him: c.him || '',
-      src: SOURCE[c.src] || c.src || '', ctx: contextLabel(c, store.state.profile),
+      src: r.mine ? SOURCE.user : SOURCE[c.src] || c.src || '', ctx: r.mine ? 'Added by users' : contextLabel(c, store.state.profile),
       t: (c.t || []).join(','), added: r.add,
     });
     if (out.length >= max) break;

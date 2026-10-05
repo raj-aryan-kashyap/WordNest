@@ -7,7 +7,7 @@
 import { Store } from './store.js';
 import { Engine } from './engine.js';
 import { renderTabbar, isSheetOpen, closeSheet, sheetHistorySettled, toast } from './ui.js';
-import { syncEnabled, syncNow, setLibraryHandler, suggestFromServer } from './sync.js';
+import { syncEnabled, syncConfigured, syncNow, setLibraryHandler, suggestFromServer } from './sync.js';
 import { markLibrarySent } from './library.js';
 import { status } from './status.js';
 import { statusChip } from './components.js';
@@ -113,7 +113,7 @@ store.onDirty = debounce(backgroundSync, 6000);
 setLibraryHandler((cards) => engine.addLibraryCards(cards));
 
 /* ---------- Smart picks through the sheet (Gemini key lives there) ---------- */
-engine.serverSuggest = (request) => (syncEnabled(store) ? suggestFromServer(store, request) : Promise.resolve({ ok: false, code: 'no_sync' }));
+engine.serverSuggest = (request) => (syncConfigured() ? suggestFromServer(store, request) : Promise.resolve({ ok: false, code: 'no_sync' }));
 engine.onSentToLibrary = (ids) => markLibrarySent(ids);
 
 /* ---------- Status icon: update in place, open details on tap ---------- */
@@ -123,6 +123,16 @@ status.on(() => {
 });
 document.addEventListener('click', (e) => {
   if (e.target.closest('[data-act="status"]')) openStatusSheet(store, engine);
+});
+
+// A quiet one-line note when smart picks add words (never during a quiz).
+let lastPickNote = 0;
+status.on((s) => {
+  const w = s.words;
+  const smart = ['server', 'phone', 'claude'].includes(w.lastSource);
+  if (!smart || !w.lastAdded || w.lastAt === lastPickNote) return;
+  lastPickNote = w.lastAt;
+  if (current !== 'review' && current !== 'welcome') toast(`${w.lastAdded} new words picked for you`);
 });
 
 document.addEventListener('visibilitychange', () => {
@@ -145,11 +155,23 @@ window.addEventListener('online', () => { updateNet(); backgroundSync(); });
 window.addEventListener('offline', updateNet);
 updateNet();
 
+/* ---------- After an update: one friendly note, nothing to do ---------- */
+function noteUpdate() {
+  try {
+    const seen = localStorage.getItem('wn.version');
+    localStorage.setItem('wn.version', CONFIG.VERSION);
+    if (seen && seen !== CONFIG.VERSION && store.state.profile.onboarded) {
+      setTimeout(() => toast('WordNest was updated. Your words and streak are all here.'), 900);
+    }
+  } catch { /* storage blocked: skip the note */ }
+}
+
 /* ---------- Start ---------- */
 if (!store.storageOk) {
   setTimeout(() => toast("This browser is blocking saving. Your progress won't be kept."), 600);
 }
 render();
+noteUpdate();
 backgroundSync();
 
 if (!CONFIG.PREVIEW && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {

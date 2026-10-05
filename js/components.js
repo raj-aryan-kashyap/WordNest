@@ -15,7 +15,7 @@ function levelBars(d) {
 
 const tenseClass = (t) => (/past/i.test(t) ? 'past' : /present/i.test(t) ? 'present' : /future/i.test(t) ? 'future' : 'plain');
 
-export function renderEntry(card, { tools = true, animate = false } = {}) {
+export function renderEntry(card, { tools = true, animate = false, mine = false } = {}) {
   const len = card.w.length;
   const sizeClass = len > 15 ? 'is-xlong' : len > 10 ? 'is-long' : '';
   const topic = (card.t || []).map(topicLabel).filter(Boolean)[0];
@@ -40,7 +40,9 @@ export function renderEntry(card, { tools = true, animate = false } = {}) {
     <div class="entry-meta">
       <div class="entry-tags">
         ${card.p ? `<span class="tag tag--pos">${esc(card.p)}</span>` : ''}
-        ${topic ? `<span class="tag">${esc(topic)}</span>` : ''}
+        ${mine || card.src === 'user' ? `<span class="tag tag--mine">${icon('me', 13)} Added by you</span>`
+          : card.src === 'ai' ? `<span class="tag tag--ai">${icon('sparkle', 13)} Picked for you</span>`
+          : topic ? `<span class="tag">${esc(topic)}</span>` : ''}
       </div>
       ${levelBars(card.d)}
     </div>
@@ -57,7 +59,8 @@ export function renderEntry(card, { tools = true, animate = false } = {}) {
     ${card.note ? `<p class="entry-note">${esc(card.note)}</p>` : ''}
     ${uses}
     ${hindi}
-    ${tools ? `<div class="entry-tools"><button class="link-btn" type="button" data-act="search">${icon('search', 18)} Search on Google</button></div>` : ''}
+    ${tools ? `<div class="entry-tools"><button class="link-btn" type="button" data-act="search">${icon('search', 18)} Search on Google</button>
+      <button class="link-btn" type="button" data-act="add-own">${icon('plus', 18)} Add your own word</button></div>` : ''}
   </article>`;
 }
 
@@ -105,7 +108,7 @@ export function renderFeedback(correct, card, { cta = 'Continue' } = {}) {
 /** Small round icon. Grows a short label only while something is running. */
 export function statusChip() {
   const { sync, words } = status.get();
-  const busy = sync.phase === 'running' ? 'Syncing' : words.phase === 'running' ? 'Finding words' : '';
+  const busy = sync.phase === 'running' ? 'Syncing' : words.phase === 'running' ? 'Finding new words' : '';
   const bad = sync.phase === 'error' || words.phase === 'error';
   const label = busy || (bad ? 'Something needs a look' : sync.phase === 'ok' ? 'All synced' : 'Status');
   return `<button class="status-chip ${busy ? 'is-busy' : ''} ${bad ? 'is-bad' : ''}" type="button" data-act="status" data-status-chip aria-label="${esc(label)}. Tap for details.">

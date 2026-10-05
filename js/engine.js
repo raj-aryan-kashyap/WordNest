@@ -31,7 +31,7 @@ export const LEVEL_START = { beginner: 1.6, middle: 2.6, advanced: 3.6 };
 export const TOPIC_LABEL = {
   cs: 'Customer care', corp: 'Office', tech: 'Tech', ai: 'AI',
   comm: 'Speaking and writing', career: 'Interviews', exam: 'Exams', hr: 'Workplace and HR',
-  ctx: 'For you', general: 'Everyday',
+  ctx: 'For you', general: 'Everyday', mine: 'Added by you',
 };
 
 /** Label for a word's topic pill. User-written goal tags show as "For you". */

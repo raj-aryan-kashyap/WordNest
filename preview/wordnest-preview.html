@@ -856,6 +856,21 @@ body.no-tabbar .toast-root { bottom: calc(var(--safe-b) + 24px); }
 .more summary::-webkit-details-marker { display: none; }
 .more summary::before { content: "+"; margin-right: 8px; font-weight: 700; }
 .more[open] summary::before { content: "\2212"; }
+.tag--ai { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); background: var(--accent-soft); }
+
+/* ---------- 17. Add your own word ---------- */
+.tag--mine { display: inline-flex; align-items: center; gap: 4px; color: var(--lilac); background: rgba(184, 169, 232, .14); }
+.mine-badge {
+  display: inline-flex; align-items: center; gap: 3px; vertical-align: middle;
+  margin-left: 8px; padding: 1px 7px; border-radius: var(--r-pill);
+  font-family: var(--font-ui); font-size: .6875rem; font-weight: 700;
+  color: var(--lilac); background: rgba(184, 169, 232, .14);
+}
+.aw-msg { display: flex; gap: 12px; align-items: flex-start; margin-top: 18px; padding: 14px; border-radius: var(--r-md); background: var(--bg); color: var(--accent); }
+.aw-msg > div { color: var(--text); }
+.aw-loading { margin-top: 18px; }
+.aw-source { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: .8125rem; margin-top: 8px; }
+.sheet .entry-tools { display: none; }
 
 </style>
 </head>
@@ -1408,7 +1423,7 @@ body.no-tabbar .toast-root { bottom: calc(var(--safe-b) + 24px); }
   // js/config.js
   var CONFIG = {
     APP_NAME: "WordNest",
-    VERSION: "1.4.0",
+    VERSION: "1.6.0",
     SYNC_URL: "https://script.google.com/macros/s/AKfycbzc890rFv74CY0Ea6oEsqtkTEYIreW3cHRVlwVosweTF5EDM24Ec6tYzSyeNOTAIEEeTA/exec",
     // Set to true only by tools/build-preview.mjs for the in-Claude preview.
     // Preview: no outside network, new words come from Claude, sync is off.
@@ -1995,6 +2010,23 @@ body.no-tabbar .toast-root { bottom: calc(var(--safe-b) + 24px); }
     const list = await fetchJSON(url, {}, 8e3);
     return (Array.isArray(list) ? list : []).map(parseDatamuse).filter(Boolean);
   }
+  async function levelForWord(word) {
+    try {
+      const list = await fetchJSON(`https://api.datamuse.com/words?sp=${encodeURIComponent(word)}&md=f&max=1`, {}, 6e3);
+      const ft = (list[0]?.tags || []).find((t) => t.startsWith("f:"));
+      return ft ? freqToLevel(parseFloat(ft.slice(2))) : 3;
+    } catch {
+      return 3;
+    }
+  }
+  async function spellingSuggestions(word) {
+    try {
+      const list = await fetchJSON(`https://api.datamuse.com/sug?s=${encodeURIComponent(word)}&max=6`, {}, 6e3);
+      return list.map((x) => x.word).filter((w) => w && w.toLowerCase() !== word.toLowerCase()).slice(0, 4);
+    } catch {
+      return [];
+    }
+  }
   async function lookupDictionary(word) {
     let data;
     try {
@@ -2065,11 +2097,6 @@ body.no-tabbar .toast-root { bottom: calc(var(--safe-b) + 24px); }
     const text = (data?.candidates?.[0]?.content?.parts || []).map((p) => p.text || "").join("");
     return JSON.parse(text.replace(/```json|```/g, "").trim());
   }
-  async function testGemini({ key, model }) {
-    const out = await geminiJSON({ key, model, prompt: 'Reply with this JSON only: {"ok": true}' });
-    if (!out || out.ok !== true) throw new Error("Unexpected reply");
-    return true;
-  }
 
   // js/engine.js
   var LEVEL_START = { beginner: 1.6, middle: 2.6, advanced: 3.6 };
@@ -2083,7 +2110,8 @@ body.no-tabbar .toast-root { bottom: calc(var(--safe-b) + 24px); }
     exam: "Exams",
     hr: "Workplace and HR",
     ctx: "For you",
-    general: "Everyday"
+    general: "Everyday",
+    mine: "Added by you"
   };
   var topicLabel = (t) => TOPIC_LABEL[t] || (t.startsWith("c:") ? "For you" : null);
   var CORE_TAGS = /* @__PURE__ */ new Set(["hr"]);
@@ -2627,7 +2655,7 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
 
   // js/library.js
   var SENT_KEY = "wn.libsent.v1";
-  var SOURCE = { seed: "Starter pack", ai: "AI", datamuse: "Dictionary", library: "Library" };
+  var SOURCE = { seed: "Starter pack", ai: "AI", datamuse: "Dictionary", library: "Library", user: "Added by user" };
   var seedMap = new Map(SEED.map((c) => [c.id, c]));
   function readSent() {
     try {
@@ -2649,6 +2677,7 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
     }
   }
   function contextLabel(card, profile) {
+    if (card.src === "user") return "Added by users";
     const goals = activeGoals(profile);
     for (const t of card.t || []) {
       if (t.startsWith("c:")) {
@@ -2685,8 +2714,8 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
         other: other.join(" | "),
         hi: c.hi || "",
         him: c.him || "",
-        src: SOURCE[c.src] || c.src || "",
-        ctx: contextLabel(c, store2.state.profile),
+        src: r.mine ? SOURCE.user : SOURCE[c.src] || c.src || "",
+        ctx: r.mine ? "Added by users" : contextLabel(c, store2.state.profile),
         t: (c.t || []).join(","),
         added: r.add
       });
@@ -2878,10 +2907,20 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
     return { created: !!res.created };
   }
   async function suggestFromServer(store2, request) {
-    if (!syncEnabled(store2)) return { ok: false, code: "no_sync" };
-    const { user, pinHash } = store2.state.sync;
+    if (!syncConfigured()) return { ok: false, code: "no_sync" };
+    const who = syncEnabled(store2) ? { user: store2.state.sync.user, pin: store2.state.sync.pinHash } : { user: "guest" };
     try {
-      return await call("suggest", { user, pin: pinHash, ...request });
+      return await call("suggest", { ...who, ...request });
+    } catch (e) {
+      if (e.data) return e.data;
+      throw e;
+    }
+  }
+  async function enrichFromServer(store2, request) {
+    if (!syncConfigured()) return { ok: false, code: "no_sync" };
+    const who = syncEnabled(store2) ? { user: store2.state.sync.user, pin: store2.state.sync.pinHash } : { user: "guest" };
+    try {
+      return await call("enrich", { ...who, ...request });
     } catch (e) {
       if (e.data) return e.data;
       throw e;
@@ -2900,7 +2939,7 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
     return `<span class="lvl" role="img" aria-label="Level ${n} of 5">${[1, 2, 3, 4, 5].map((i) => `<i class="${i <= n ? "is-on" : ""}"></i>`).join("")}</span>`;
   }
   var tenseClass = (t) => /past/i.test(t) ? "past" : /present/i.test(t) ? "present" : /future/i.test(t) ? "future" : "plain";
-  function renderEntry(card, { tools = true, animate = false } = {}) {
+  function renderEntry(card, { tools = true, animate = false, mine = false } = {}) {
     const len = card.w.length;
     const sizeClass = len > 15 ? "is-xlong" : len > 10 ? "is-long" : "";
     const topic = (card.t || []).map(topicLabel).filter(Boolean)[0];
@@ -2918,7 +2957,7 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
     <div class="entry-meta">
       <div class="entry-tags">
         ${card.p ? `<span class="tag tag--pos">${esc(card.p)}</span>` : ""}
-        ${topic ? `<span class="tag">${esc(topic)}</span>` : ""}
+        ${mine || card.src === "user" ? `<span class="tag tag--mine">${icon("me", 13)} Added by you</span>` : card.src === "ai" ? `<span class="tag tag--ai">${icon("sparkle", 13)} Picked for you</span>` : topic ? `<span class="tag">${esc(topic)}</span>` : ""}
       </div>
       ${levelBars(card.d)}
     </div>
@@ -2935,7 +2974,8 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
     ${card.note ? `<p class="entry-note">${esc(card.note)}</p>` : ""}
     ${uses}
     ${hindi}
-    ${tools ? `<div class="entry-tools"><button class="link-btn" type="button" data-act="search">${icon("search", 18)} Search on Google</button></div>` : ""}
+    ${tools ? `<div class="entry-tools"><button class="link-btn" type="button" data-act="search">${icon("search", 18)} Search on Google</button>
+      <button class="link-btn" type="button" data-act="add-own">${icon("plus", 18)} Add your own word</button></div>` : ""}
   </article>`;
   }
   function renderEntrySkeleton(note = "Finding your next word...") {
@@ -2980,7 +3020,7 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
   }
   function statusChip() {
     const { sync, words } = status.get();
-    const busy = sync.phase === "running" ? "Syncing" : words.phase === "running" ? "Finding words" : "";
+    const busy = sync.phase === "running" ? "Syncing" : words.phase === "running" ? "Finding new words" : "";
     const bad = sync.phase === "error" || words.phase === "error";
     const label = busy || (bad ? "Something needs a look" : sync.phase === "ok" ? "All synced" : "Status");
     return `<button class="status-chip ${busy ? "is-busy" : ""} ${bad ? "is-bad" : ""}" type="button" data-act="status" data-status-chip aria-label="${esc(label)}. Tap for details.">
@@ -3038,16 +3078,16 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
   }
   function picksLine(store2) {
     const w = status.get().words;
-    if (CONFIG.PREVIEW) return ["Claude picks words for your goals here."];
+    if (CONFIG.PREVIEW) return ["On. Claude picks words for your goals here."];
     if (w.ai && w.ai.on) {
-      const out = [`Gemini via your sheet: ${w.ai.used} of ${w.ai.limit} used today`];
-      if (w.aiPausedUntil > Date.now()) out.push("Pausing a few minutes to stay inside the free limit.");
-      else if (w.ai.used >= w.ai.limit) out.push("Free dictionary words until tomorrow.");
+      const out = ["On. New words are picked from your goals and answers."];
+      if (w.aiPausedUntil > Date.now()) out.push("Taking a short break. Back in a few minutes.");
+      else if (w.ai.used >= w.ai.limit) out.push("Today's picks are used up. Dictionary words until tomorrow.");
+      else out.push(`${w.ai.used} of ${w.ai.limit} picks used today`);
       return out;
     }
-    if (store2.ai.key) return ["Gemini with the key on this phone."];
-    if (syncEnabled(store2)) return ["Free dictionary words. Add a Gemini key in the sheet for smarter picks."];
-    return ["Free dictionary words. See Me > Smarter word picks."];
+    if (store2.ai.key) return ["On, using the key saved on this phone."];
+    return ["Using dictionary words right now."];
   }
   function openStatusSheet(store2, engine2) {
     engine2.maybeRefill();
@@ -3427,6 +3467,287 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
   __export(learn_exports, {
     mount: () => mount3
   });
+
+  // js/addword.js
+  var SOURCE_TEXT = {
+    have: "Details from the app\u2019s word list",
+    library: "Details from the shared Library",
+    gemini: "Details filled in by AI",
+    claude: "Details filled in by AI",
+    dictionary: "Details from a free dictionary",
+    manual: "Your own meaning"
+  };
+  function cleanInput(text) {
+    const t = String(text || "").trim().replace(/\s+/g, " ");
+    return /^[A-Z]{2,6}$/.test(t) ? t : t.toLowerCase();
+  }
+  function validateInput(t) {
+    if (!t) return "Type a word or a short phrase.";
+    if (t.length > 40) return "Keep it under 40 letters.";
+    if (!/^[A-Za-z][A-Za-z' -]*$/.test(t)) return "Use English letters only. Spaces, dashes and apostrophes are fine.";
+    return "";
+  }
+  function learnerContext(store2, engine2) {
+    const goals = activeGoals(store2.state.profile).map((g) => g.about).join("; ") || "everyday English";
+    return `Learner goals: ${goals}. Learner level about ${engine2.skill().toFixed(1)} of 5.`;
+  }
+  async function lookupWord(text, { store: store2, engine: engine2 }) {
+    const word = cleanInput(text);
+    const k = word.toLowerCase();
+    const rec = Object.values(store2.state.words).find((r) => r.w.toLowerCase() === k);
+    if (rec) return { status: "exists", rec, card: engine2.card(rec.id) };
+    const known = engine2.allCards().find((c) => c.w.toLowerCase() === k);
+    if (known) return { status: "ok", source: "have", card: { ...known } };
+    if (CONFIG.PREVIEW) {
+      try {
+        const out = await claudeJSON(`Fill in one vocabulary card for "${word}". ${learnerContext(store2, engine2)}
+Return JSON only: {"words":[{"word":"${word}","pos":"","ipa":"","say":"","meaning":"","note":"","present":"","past":"","future":"","hindi":"","hindiMeaning":"","level":3,"goals":["mine"]}]}
+Rules: simple meaning (max 15 words), three short sentences that each contain the word, Hindi in Devanagari, easy respelling with stress in capitals. If it is not a real English word, return {"words":[]}.`);
+        const cards = cleanAiWords((out?.words || []).filter((x) => String(x.word || "").toLowerCase() === k), { goalTags: { mine: ["mine"] } });
+        if (cards[0]) return { status: "ok", source: "claude", card: cards[0] };
+        if (out) return { status: "notfound", word, suggestions: [] };
+      } catch {
+      }
+    }
+    if (syncConfigured()) {
+      try {
+        const res = await enrichFromServer(store2, { word, context: learnerContext(store2, engine2) });
+        if (res.ok && res.card) {
+          const c = res.card;
+          const ex = [["Past", c.past], ["Present", c.present], ["Future", c.future]].filter(([, s]) => s).map(([t, s]) => ({ t, s: String(s) }));
+          for (const s of String(c.other || "").split(" | ").filter(Boolean)) ex.push({ t: "Example", s });
+          return {
+            status: "ok",
+            source: res.source,
+            card: {
+              id: c.id || "",
+              w: c.w || word,
+              p: c.p || "",
+              ipa: c.ipa || "",
+              say: c.say || "",
+              m: c.m,
+              note: c.note || "",
+              ex,
+              hi: c.hi || "",
+              him: c.him || "",
+              d: Number(c.d) || 3,
+              t: ["mine"]
+            }
+          };
+        }
+        if (res.code === "not_found") {
+          return { status: "notfound", word, suggestions: await spellingSuggestions(word) };
+        }
+      } catch {
+      }
+    }
+    let dict;
+    try {
+      dict = await lookupDictionary(word);
+    } catch {
+      return { status: "offline" };
+    }
+    if (!dict) return { status: "notfound", word, suggestions: await spellingSuggestions(word) };
+    const [hi, him, d] = await Promise.all([translateToHindi(word), translateToHindi(dict.meaning), levelForWord(word)]);
+    return {
+      status: "ok",
+      source: "dictionary",
+      card: {
+        id: "",
+        w: word,
+        p: dict.pos,
+        ipa: dict.ipa,
+        say: "",
+        m: dict.meaning,
+        ex: dict.examples.map((s) => ({ t: "Example", s })),
+        hi,
+        him: him && him !== hi ? him : "",
+        d,
+        t: ["mine"],
+        audio: dict.audio
+      }
+    };
+  }
+  function addOwnWord(card, { store: store2, engine: engine2 }) {
+    const today = dayKey();
+    const id = card.id && !card.id.startsWith("u:") && engine2.card(card.id) ? card.id : "u:" + slug(card.w);
+    const full = { ...card, id, src: card.id && card.id.startsWith("s:") ? "seed" : "user", t: card.t?.length ? card.t : ["mine"] };
+    if (full.src !== "seed") {
+      store2.cards[id] = full;
+      store2.touchCards();
+    }
+    store2.update((s) => {
+      s.words[id] = { ...newRecord(full, today), mine: true };
+      s.history.push({ t: Date.now(), id, k: "a" });
+      if (s.history.length > 1500) s.history = s.history.slice(-1500);
+    });
+    store2.markActive();
+    return full;
+  }
+  function openAddWord({ store: store2, engine: engine2, onAdded }) {
+    let current2 = null;
+    let editing = false;
+    sheet({
+      label: "Add your own word",
+      html: `<h2 class="sheet-title">Add your own word</h2>
+      <p class="sheet-text">Type a word or short phrase you heard. We'll fill in the meaning, how to say it, examples and Hindi.</p>
+      <div class="add-row" style="margin-top:16px">
+        <label class="visually-hidden" for="aw-input">Word</label>
+        <input id="aw-input" class="input" type="text" maxlength="40" autocomplete="off" autocapitalize="none" spellcheck="true" enterkeyhint="search" placeholder="For example: liaise">
+        <button class="btn btn-primary" type="button" data-aw="look" disabled>Look it up</button>
+      </div>
+      <p class="field-error" data-aw-error hidden></p>
+      <div data-aw-result></div>`,
+      onMount(el, close) {
+        const input = el.querySelector("#aw-input");
+        const lookBtn = el.querySelector('[data-aw="look"]');
+        const errEl = el.querySelector("[data-aw-error]");
+        const out = el.querySelector("[data-aw-result]");
+        const setError = (m) => {
+          errEl.textContent = m;
+          errEl.hidden = !m;
+        };
+        input.addEventListener("input", () => {
+          lookBtn.disabled = !input.value.trim();
+          setError("");
+        });
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            look();
+          }
+        });
+        setTimeout(() => input.focus(), 250);
+        async function look(text = input.value) {
+          const word = cleanInput(text);
+          input.value = word;
+          const problem = validateInput(word);
+          if (problem) return setError(problem);
+          setError("");
+          editing = false;
+          lookBtn.classList.add("is-busy");
+          out.innerHTML = `<div class="aw-loading"><div class="sk sk-word" style="width:45%"></div><div class="sk sk-line"></div><div class="sk sk-line short"></div>
+          <p class="loading-note">Looking up \u201C${esc(word)}\u201D...</p></div>`;
+          let res;
+          try {
+            res = await lookupWord(word, { store: store2, engine: engine2 });
+          } catch {
+            res = { status: "offline" };
+          }
+          lookBtn.classList.remove("is-busy");
+          show(res);
+        }
+        function show(res) {
+          if (res.status === "ok") {
+            current2 = res;
+            out.innerHTML = previewHtml();
+          } else if (res.status === "exists") {
+            current2 = null;
+            out.innerHTML = `<div class="aw-msg">${icon("check", 20)}<div><p class="st-title">Already in your words</p>
+            <p class="st-sub">\u201C${esc(res.rec.w)}\u201D is in your ${res.rec.s === "known" ? "Known" : res.rec.s === "mastered" ? "Mastered" : "Learning"} list.</p></div></div>
+            ${res.card ? renderEntry(res.card, { tools: false, mine: !!res.rec.mine }) : ""}`;
+          } else if (res.status === "notfound") {
+            current2 = null;
+            out.innerHTML = `<div class="aw-msg">${icon("search", 20)}<div><p class="st-title">We couldn't find \u201C${esc(res.word)}\u201D</p>
+            <p class="st-sub">Check the spelling${res.suggestions.length ? ", or tap one of these:" : "."}</p></div></div>
+            ${res.suggestions.length ? `<div class="chips">${res.suggestions.map((w) => `<button class="chip" type="button" data-aw-sug="${esc(w)}">${esc(w)}</button>`).join("")}</div>` : ""}
+            <div class="sheet-actions"><button class="btn btn-soft btn-block" type="button" data-aw="manual">Add it with my own meaning</button></div>`;
+            out.dataset.word = res.word;
+          } else {
+            current2 = null;
+            out.innerHTML = `<div class="aw-msg">${icon("wifi", 20)}<div><p class="st-title">Can't look it up right now</p>
+            <p class="st-sub">Looking up words needs the internet. Check your connection and try again.</p></div></div>`;
+          }
+        }
+        function previewHtml() {
+          const { card, source } = current2;
+          return `${renderEntry(card, { tools: false, mine: true })}
+          <p class="aw-source">${icon("sparkle", 14)} ${esc(SOURCE_TEXT[source] || "")}</p>
+          ${editing ? `<label class="field" style="margin-top:12px"><span class="field-label">Meaning</span>
+              <textarea class="textarea" data-aw-m rows="2" maxlength="160">${esc(card.m)}</textarea></label>
+            <label class="field"><span class="field-label">Hindi</span>
+              <input class="input" data-aw-hi type="text" maxlength="80" value="${esc(card.hi || "")}" placeholder="Optional"></label>` : ""}
+          <div class="sheet-actions">
+            <button class="btn btn-primary btn-block" type="button" data-aw="add">${icon("plus", 20)} Add to my words</button>
+            ${editing ? "" : '<button class="btn btn-ghost btn-block" type="button" data-aw="edit">Edit meaning or Hindi</button>'}
+            <button class="btn btn-ghost btn-block" type="button" data-aw="search">${icon("search", 18)} Search on Google</button>
+          </div>`;
+        }
+        function manualHtml(word) {
+          return `<label class="field" style="margin-top:16px"><span class="field-label">What does \u201C${esc(word)}\u201D mean?</span>
+            <textarea class="textarea" data-aw-m rows="2" maxlength="160" placeholder="In your own simple words"></textarea></label>
+          <label class="field"><span class="field-label">Hindi</span>
+            <input class="input" data-aw-hi type="text" maxlength="80" placeholder="Optional"></label>
+          <label class="field"><span class="field-label">An example sentence</span>
+            <input class="input" data-aw-ex type="text" maxlength="140" placeholder="Optional"></label>
+          <div class="sheet-actions"><button class="btn btn-primary btn-block" type="button" data-aw="add-manual">${icon("plus", 20)} Add to my words</button></div>`;
+        }
+        function finish(card) {
+          const saved = addOwnWord(card, { store: store2, engine: engine2 });
+          haptic(15);
+          close();
+          toast(`\u201C${saved.w}\u201D added to your words. It joins your revision from tomorrow.`);
+          onAdded?.(saved);
+        }
+        el.addEventListener("click", (e) => {
+          const sug = e.target.closest("[data-aw-sug]");
+          if (sug) return look(sug.dataset.awSug);
+          const b = e.target.closest('[data-aw], [data-act="hear"]');
+          if (!b) return;
+          if (b.dataset.act === "hear") return speak(current2?.card.w || input.value, current2?.card.audio, b);
+          const act = b.dataset.aw;
+          if (act === "look") look();
+          else if (act === "edit") {
+            editing = true;
+            out.innerHTML = previewHtml();
+            out.querySelector("[data-aw-m]")?.focus();
+          } else if (act === "search") openSearch(current2?.card.w || input.value);
+          else if (act === "add" && current2) {
+            const card = { ...current2.card };
+            const m = out.querySelector("[data-aw-m]");
+            const hi = out.querySelector("[data-aw-hi]");
+            if (m) {
+              const v = m.value.trim();
+              if (!v) return setError("Add a meaning first.");
+              if (v !== card.m) {
+                card.m = v;
+                card.id = "";
+              }
+            }
+            if (hi && hi.value.trim() !== (card.hi || "")) {
+              card.hi = hi.value.trim();
+              card.him = "";
+              card.id = "";
+            }
+            finish(card);
+          } else if (act === "manual") {
+            out.innerHTML = manualHtml(out.dataset.word);
+            out.querySelector("[data-aw-m]").focus();
+          } else if (act === "add-manual") {
+            const word = out.dataset.word;
+            const m = out.querySelector("[data-aw-m]").value.trim();
+            if (!m) return setError("Add a meaning first.");
+            const ex = out.querySelector("[data-aw-ex]").value.trim();
+            finish({
+              id: "",
+              w: word,
+              p: "",
+              ipa: "",
+              say: "",
+              m,
+              ex: ex ? [{ t: "Example", s: ex }] : [],
+              hi: out.querySelector("[data-aw-hi]").value.trim(),
+              him: "",
+              d: 3,
+              t: ["mine"]
+            });
+          }
+        });
+      }
+    });
+  }
+
+  // js/screens/learn.js
   function mount3(root, ctx) {
     const { store: store2, engine: engine2, go: go2 } = ctx;
     let alive = true;
@@ -3570,6 +3891,9 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
           break;
         case "search":
           if (card) openSearch(card.w);
+          break;
+        case "add-own":
+          openAddWord({ store: store2, engine: engine2, onAdded: () => draw() });
           break;
         case "answer":
           answerCheck(Number(el.dataset.i));
@@ -3782,7 +4106,7 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
       const list = out[tab].filter((r) => !q || r.w.toLowerCase().includes(q) || (engine2.card(r.id)?.m || "").toLowerCase().includes(q));
       if (!out[tab].length) {
         const empty = {
-          learning: ["No words to learn yet", 'Words you mark "New to me" show up here.', '<button class="btn btn-primary" data-act="learn">Learn new words</button>'],
+          learning: ["No words to learn yet", 'Words you mark "New to me" or add yourself show up here.', '<button class="btn btn-primary" data-act="learn">Learn new words</button><button class="btn btn-ghost" data-act="add">Add your own word</button>'],
           mastered: ["No mastered words yet", "Keep revising. Words you remember for a month move here.", ""],
           known: ["No known words yet", 'Words you mark "I know this" show up here.', ""]
         }[tab];
@@ -3793,7 +4117,7 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
         const c = engine2.card(r.id);
         const due = dueText(r, today);
         return `<li><button class="wrow" data-act="open" data-id="${esc(r.id)}">
-        <div class="wrow-main"><p class="wrow-word">${esc(r.w)}</p>${c?.m ? `<p class="wrow-mean">${esc(c.m)}</p>` : ""}</div>
+        <div class="wrow-main"><p class="wrow-word">${esc(r.w)}${r.mine ? `<span class="mine-badge" title="Added by you">${icon("me", 12)} You</span>` : ""}</p>${c?.m ? `<p class="wrow-mean">${esc(c.m)}</p>` : ""}</div>
         ${due.text ? `<span class="wrow-side ${due.due ? "is-due" : ""}">${due.text}</span>` : ""}
         <span class="muted">${icon("chevron", 18)}</span>
       </button></li>`;
@@ -3808,7 +4132,8 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
       const total = Object.keys(store2.state.words).length;
       root.innerHTML = `
       <header class="topbar"><div class="topbar-text"><h1 class="screen-title">My words</h1>
-        <p class="screen-sub">${total ? `${total} words so far` : "Your words will collect here"}</p></div></header>
+        <p class="screen-sub">${total ? `${total} words so far` : "Your words will collect here"}</p></div>
+        <button class="btn btn-soft btn-sm" data-act="add">${icon("plus", 18)} Add a word</button></header>
       <div id="tabs">${tabsHtml()}</div>
       ${total ? `<label class="search"><span class="visually-hidden">Search your words</span>${icon("search", 18)}
         <input id="q" class="input" type="search" placeholder="Search your words" value="${esc(query)}" autocomplete="off" enterkeyhint="search"></label>` : '<div style="height:14px"></div>'}
@@ -3827,7 +4152,7 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
          ${rec.s === "mastered" ? '<button class="btn btn-soft btn-block" data-move="again">Practice it again</button>' : ""}`;
       sheet({
         label: rec.w,
-        html: `${c ? renderEntry(c, { tools: false }) : `<h2 class="sheet-title">${esc(rec.w)}</h2><p class="sheet-text">The details for this word aren't saved on this phone. Tap Search on Google to look it up.</p>`}
+        html: `${c ? renderEntry(c, { tools: false, mine: !!rec.mine }) : `<h2 class="sheet-title">${esc(rec.w)}</h2><p class="sheet-text">The details for this word aren't saved on this phone. Tap Search on Google to look it up.</p>`}
         <div class="sheet-actions">
           ${actions}
           <button class="btn btn-ghost btn-block" data-search>${icon("search", 18)} Search on Google</button>
@@ -3869,6 +4194,13 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
         draw();
       } else if (el.dataset.act === "open") openWord(el.dataset.id);
       else if (el.dataset.act === "learn") go2("learn");
+      else if (el.dataset.act === "add") {
+        openAddWord({ store: store2, engine: engine2, onAdded: () => {
+          tab = "learning";
+          query = "";
+          draw();
+        } });
+      }
     };
     draw();
   }
@@ -3912,27 +4244,12 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
       <label class="field"><span class="field-label">PIN</span>
         <input id="sync-pin" class="input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="current-password" placeholder="4 to 8 numbers"></label>
       ${formError ? `<p class="field-error" role="alert">${esc(formError)}</p>` : ""}
-      <div class="row-actions"><button class="btn btn-primary btn-block ${busy === "signin" ? "is-busy" : ""}" data-act="sign-in">Turn on sync</button></div>`;
-    }
-    function aiIntro() {
-      const info = status.get().words.ai;
-      if (syncEnabled(store2)) {
-        if (info && info.on) {
-          return `<div class="status-line"><span class="status-dot is-on"></span><span>On, using the Gemini key in your Google Sheet</span></div>
-          <p class="muted small" style="margin:6px 0 14px">${info.used} of ${info.limit} smart picks used today. Each pick adds up to 12 words. When they run out, free dictionary words fill in until tomorrow.</p>`;
-        }
-        return `<p class="section-note">Best option: in your Google Sheet, click WordNest &gt; Set Gemini key and paste a free key from
-        <a class="ext-link" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>.
-        The key stays in the sheet, works on all your phones, and new words go into your Library.</p>`;
-      }
-      return `<p class="section-note">Optional. A free Google Gemini key lets the app pick words that match your goals and answers, with past, present and future examples.
-      Without it, the app uses its own word list and free dictionaries.
-      <a class="ext-link" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Get a free key</a></p>`;
+      <div class="row-actions"><button class="btn btn-primary btn-block ${busy === "signin" ? "is-busy" : ""}" data-act="sign-in">Turn on sync</button></div>
+      <p class="muted small" style="margin-top:10px">Words already on this phone are kept and added to your account.</p>`;
     }
     function draw() {
       const p = store2.state.profile;
       const c = store2.counts();
-      const ai = store2.ai;
       const initial = (p.name || "You").trim().charAt(0).toUpperCase();
       root.innerHTML = `
       <div class="me-head">
@@ -3965,25 +4282,7 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
         ${syncSection()}
       </section>
 
-      ${CONFIG.PREVIEW ? `<section class="me-group panel">
-        <h2 class="section-title">Smarter word picks</h2>
-        <p class="section-note" style="margin:0">In this preview, Claude picks new words for your goal once the starter list runs out.</p>
-      </section>` : `      <section class="me-group panel">
-        <h2 class="section-title">Smarter word picks</h2>
-        ${aiIntro()}
-        <details class="more" ${ai.key ? "open" : ""}>
-          <summary>${syncEnabled(store2) ? "Or use a key on this phone only" : "Add a Gemini key on this phone"}</summary>
-          <label class="field" style="margin-top:12px"><span class="field-label">Gemini key</span>
-            <input id="ai-key" class="input" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your key" value="${esc(ai.key)}">
-            <span class="field-hint">Saved on this phone only. It is never synced.</span></label>
-          <label class="field"><span class="field-label">Model</span>
-            <input id="ai-model" class="input" type="text" autocomplete="off" spellcheck="false" value="${esc(ai.model || CONFIG.DEFAULT_AI_MODEL)}"></label>
-          <div class="row-actions">
-            <button class="btn btn-primary btn-sm ${busy === "ai" ? "is-busy" : ""}" data-act="ai-save">Save and test</button>
-            ${ai.key ? '<button class="btn btn-ghost btn-sm" data-act="ai-remove">Remove key</button>' : ""}
-          </div>
-        </details>
-      </section>`}
+
 
       <section class="me-group panel">
         <div class="setting-row">
@@ -4104,28 +4403,6 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
           draw();
         }
       }
-      if (act === "ai-save") {
-        const key = root.querySelector("#ai-key").value.trim();
-        const model = root.querySelector("#ai-model").value.trim() || CONFIG.DEFAULT_AI_MODEL;
-        if (!key) return toast("Paste your Gemini key first.");
-        busy = "ai";
-        draw();
-        try {
-          await testGemini({ key, model });
-          store2.setAi({ key, model });
-          toast("Key works. Smarter word picks are on.");
-        } catch (err) {
-          const s = err.status;
-          toast(s === 400 || s === 401 || s === 403 ? "That key didn't work. Check it and try again." : s === 404 ? "That model name wasn't found. Try gemini-2.5-flash." : s === 429 ? "The free limit is used up for now. Try again later." : "Couldn't check the key. Check your internet.");
-        }
-        busy = "";
-        draw();
-      }
-      if (act === "ai-remove") {
-        store2.setAi({ key: "" });
-        toast("Key removed");
-        draw();
-      }
       if (act === "lang") go2("welcome?edit=lang");
       if (act === "export") {
         const filename = `wordnest-backup-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.json`;
@@ -4245,7 +4522,7 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
   }
   store.onDirty = debounce(backgroundSync, 6e3);
   setLibraryHandler((cards) => engine.addLibraryCards(cards));
-  engine.serverSuggest = (request) => syncEnabled(store) ? suggestFromServer(store, request) : Promise.resolve({ ok: false, code: "no_sync" });
+  engine.serverSuggest = (request) => syncConfigured() ? suggestFromServer(store, request) : Promise.resolve({ ok: false, code: "no_sync" });
   engine.onSentToLibrary = (ids) => markLibrarySent(ids);
   status.set("sync", { phase: syncEnabled(store) ? "idle" : "off", last: store.state.sync.last || 0 });
   status.on(() => {
@@ -4255,6 +4532,14 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
   });
   document.addEventListener("click", (e) => {
     if (e.target.closest('[data-act="status"]')) openStatusSheet(store, engine);
+  });
+  var lastPickNote = 0;
+  status.on((s) => {
+    const w = s.words;
+    const smart = ["server", "phone", "claude"].includes(w.lastSource);
+    if (!smart || !w.lastAdded || w.lastAt === lastPickNote) return;
+    lastPickNote = w.lastAt;
+    if (current !== "review" && current !== "welcome") toast(`${w.lastAdded} new words picked for you`);
   });
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") {
@@ -4276,10 +4561,21 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
   });
   window.addEventListener("offline", updateNet);
   updateNet();
+  function noteUpdate() {
+    try {
+      const seen = localStorage.getItem("wn.version");
+      localStorage.setItem("wn.version", CONFIG.VERSION);
+      if (seen && seen !== CONFIG.VERSION && store.state.profile.onboarded) {
+        setTimeout(() => toast("WordNest was updated. Your words and streak are all here."), 900);
+      }
+    } catch {
+    }
+  }
   if (!store.storageOk) {
     setTimeout(() => toast("This browser is blocking saving. Your progress won't be kept."), 600);
   }
   render();
+  noteUpdate();
   backgroundSync();
   if (!CONFIG.PREVIEW && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
     navigator.serviceWorker.register("./sw.js").catch((e) => console.warn("Service worker failed", e));

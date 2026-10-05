@@ -5,9 +5,7 @@ import { esc, plural, timeAgo, haptic, runtime } from '../utils.js';
 import { icon, toast, confirmSheet } from '../ui.js';
 import { CONFIG } from '../config.js';
 import { syncConfigured, syncEnabled, signIn, signOut, syncNow, validName } from '../sync.js';
-import { testGemini } from '../sources.js';
 import { bindGoalEditor, goalCount, sameGoals } from '../goals.js';
-import { status } from '../status.js';
 
 const LEVELS = [
   { id: 'beginner', title: 'Just starting' },
@@ -45,30 +43,13 @@ export function mount(root, ctx) {
       <label class="field"><span class="field-label">PIN</span>
         <input id="sync-pin" class="input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="current-password" placeholder="4 to 8 numbers"></label>
       ${formError ? `<p class="field-error" role="alert">${esc(formError)}</p>` : ''}
-      <div class="row-actions"><button class="btn btn-primary btn-block ${busy === 'signin' ? 'is-busy' : ''}" data-act="sign-in">Turn on sync</button></div>`;
-  }
-
-  /** How smart picks work right now, in one or two lines. */
-  function aiIntro() {
-    const info = status.get().words.ai;
-    if (syncEnabled(store)) {
-      if (info && info.on) {
-        return `<div class="status-line"><span class="status-dot is-on"></span><span>On, using the Gemini key in your Google Sheet</span></div>
-          <p class="muted small" style="margin:6px 0 14px">${info.used} of ${info.limit} smart picks used today. Each pick adds up to 12 words. When they run out, free dictionary words fill in until tomorrow.</p>`;
-      }
-      return `<p class="section-note">Best option: in your Google Sheet, click WordNest &gt; Set Gemini key and paste a free key from
-        <a class="ext-link" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>.
-        The key stays in the sheet, works on all your phones, and new words go into your Library.</p>`;
-    }
-    return `<p class="section-note">Optional. A free Google Gemini key lets the app pick words that match your goals and answers, with past, present and future examples.
-      Without it, the app uses its own word list and free dictionaries.
-      <a class="ext-link" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Get a free key</a></p>`;
+      <div class="row-actions"><button class="btn btn-primary btn-block ${busy === 'signin' ? 'is-busy' : ''}" data-act="sign-in">Turn on sync</button></div>
+      <p class="muted small" style="margin-top:10px">Words already on this phone are kept and added to your account.</p>`;
   }
 
   function draw() {
     const p = store.state.profile;
     const c = store.counts();
-    const ai = store.ai;
     const initial = (p.name || 'You').trim().charAt(0).toUpperCase();
     root.innerHTML = `
       <div class="me-head">
@@ -101,25 +82,7 @@ export function mount(root, ctx) {
         ${syncSection()}
       </section>
 
-      ${CONFIG.PREVIEW ? `<section class="me-group panel">
-        <h2 class="section-title">Smarter word picks</h2>
-        <p class="section-note" style="margin:0">In this preview, Claude picks new words for your goal once the starter list runs out.</p>
-      </section>` : `      <section class="me-group panel">
-        <h2 class="section-title">Smarter word picks</h2>
-        ${aiIntro()}
-        <details class="more" ${ai.key ? 'open' : ''}>
-          <summary>${syncEnabled(store) ? 'Or use a key on this phone only' : 'Add a Gemini key on this phone'}</summary>
-          <label class="field" style="margin-top:12px"><span class="field-label">Gemini key</span>
-            <input id="ai-key" class="input" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your key" value="${esc(ai.key)}">
-            <span class="field-hint">Saved on this phone only. It is never synced.</span></label>
-          <label class="field"><span class="field-label">Model</span>
-            <input id="ai-model" class="input" type="text" autocomplete="off" spellcheck="false" value="${esc(ai.model || CONFIG.DEFAULT_AI_MODEL)}"></label>
-          <div class="row-actions">
-            <button class="btn btn-primary btn-sm ${busy === 'ai' ? 'is-busy' : ''}" data-act="ai-save">Save and test</button>
-            ${ai.key ? '<button class="btn btn-ghost btn-sm" data-act="ai-remove">Remove key</button>' : ''}
-          </div>
-        </details>
-      </section>`}
+
 
       <section class="me-group panel">
         <div class="setting-row">
@@ -245,33 +208,6 @@ export function mount(root, ctx) {
     if (act === 'sign-out') {
       const ok = await confirmSheet({ title: 'Sign out?', text: 'Your words stay on this phone. Sync stops until you sign in again.', okLabel: 'Sign out' });
       if (ok) { signOut(store); draw(); }
-    }
-
-    if (act === 'ai-save') {
-      const key = root.querySelector('#ai-key').value.trim();
-      const model = root.querySelector('#ai-model').value.trim() || CONFIG.DEFAULT_AI_MODEL;
-      if (!key) return toast('Paste your Gemini key first.');
-      busy = 'ai';
-      draw();
-      try {
-        await testGemini({ key, model });
-        store.setAi({ key, model });
-        toast('Key works. Smarter word picks are on.');
-      } catch (err) {
-        const s = err.status;
-        toast(s === 400 || s === 401 || s === 403 ? "That key didn't work. Check it and try again."
-          : s === 404 ? "That model name wasn't found. Try gemini-2.5-flash."
-          : s === 429 ? 'The free limit is used up for now. Try again later.'
-          : "Couldn't check the key. Check your internet.");
-      }
-      busy = '';
-      draw();
-    }
-
-    if (act === 'ai-remove') {
-      store.setAi({ key: '' });
-      toast('Key removed');
-      draw();
     }
 
     if (act === 'lang') go('welcome?edit=lang');

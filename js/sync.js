@@ -155,13 +155,26 @@ export async function signIn(store, name, pin) {
 
 /** Ask the sheet for smart word picks (Gemini runs there). Returns the raw response. */
 export async function suggestFromServer(store, request) {
-  if (!syncEnabled(store)) return { ok: false, code: 'no_sync' };
-  const { user, pinHash } = store.state.sync;
+  if (!syncConfigured()) return { ok: false, code: 'no_sync' };
+  // Signed in: picks are credited to you in the Library. Not signed in: "guest".
+  const who = syncEnabled(store) ? { user: store.state.sync.user, pin: store.state.sync.pinHash } : { user: 'guest' };
   try {
-    return await call('suggest', { user, pin: pinHash, ...request });
+    return await call('suggest', { ...who, ...request });
   } catch (e) {
     // call() throws on ok:false; hand the code back so the engine can decide.
     if (e.data) return e.data; // includes ai usage and retryIn
+    throw e;
+  }
+}
+
+/** Ask the sheet to fill in a word the user typed (Library first, then Gemini). */
+export async function enrichFromServer(store, request) {
+  if (!syncConfigured()) return { ok: false, code: 'no_sync' };
+  const who = syncEnabled(store) ? { user: store.state.sync.user, pin: store.state.sync.pinHash } : { user: 'guest' };
+  try {
+    return await call('enrich', { ...who, ...request });
+  } catch (e) {
+    if (e.data) return e.data;
     throw e;
   }
 }

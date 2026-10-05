@@ -5,6 +5,7 @@
 import { esc, diffDays, dayKey, addDays } from '../utils.js';
 import { icon, sheet, speak, openSearch, toast } from '../ui.js';
 import { renderEntry, stateBlock } from '../components.js';
+import { openAddWord } from '../addword.js';
 
 let tab = 'learning';   // remembered while the app is open
 let query = '';
@@ -38,7 +39,7 @@ export function mount(root, ctx) {
     const list = out[tab].filter((r) => !q || r.w.toLowerCase().includes(q) || (engine.card(r.id)?.m || '').toLowerCase().includes(q));
     if (!out[tab].length) {
       const empty = {
-        learning: ['No words to learn yet', 'Words you mark "New to me" show up here.', '<button class="btn btn-primary" data-act="learn">Learn new words</button>'],
+        learning: ['No words to learn yet', 'Words you mark "New to me" or add yourself show up here.', '<button class="btn btn-primary" data-act="learn">Learn new words</button><button class="btn btn-ghost" data-act="add">Add your own word</button>'],
         mastered: ['No mastered words yet', 'Keep revising. Words you remember for a month move here.', ''],
         known: ['No known words yet', 'Words you mark "I know this" show up here.', ''],
       }[tab];
@@ -49,7 +50,7 @@ export function mount(root, ctx) {
       const c = engine.card(r.id);
       const due = dueText(r, today);
       return `<li><button class="wrow" data-act="open" data-id="${esc(r.id)}">
-        <div class="wrow-main"><p class="wrow-word">${esc(r.w)}</p>${c?.m ? `<p class="wrow-mean">${esc(c.m)}</p>` : ''}</div>
+        <div class="wrow-main"><p class="wrow-word">${esc(r.w)}${r.mine ? `<span class="mine-badge" title="Added by you">${icon('me', 12)} You</span>` : ''}</p>${c?.m ? `<p class="wrow-mean">${esc(c.m)}</p>` : ''}</div>
         ${due.text ? `<span class="wrow-side ${due.due ? 'is-due' : ''}">${due.text}</span>` : ''}
         <span class="muted">${icon('chevron', 18)}</span>
       </button></li>`;
@@ -66,7 +67,8 @@ export function mount(root, ctx) {
     const total = Object.keys(store.state.words).length;
     root.innerHTML = `
       <header class="topbar"><div class="topbar-text"><h1 class="screen-title">My words</h1>
-        <p class="screen-sub">${total ? `${total} words so far` : 'Your words will collect here'}</p></div></header>
+        <p class="screen-sub">${total ? `${total} words so far` : 'Your words will collect here'}</p></div>
+        <button class="btn btn-soft btn-sm" data-act="add">${icon('plus', 18)} Add a word</button></header>
       <div id="tabs">${tabsHtml()}</div>
       ${total ? `<label class="search"><span class="visually-hidden">Search your words</span>${icon('search', 18)}
         <input id="q" class="input" type="search" placeholder="Search your words" value="${esc(query)}" autocomplete="off" enterkeyhint="search"></label>` : '<div style="height:14px"></div>'}
@@ -88,7 +90,7 @@ export function mount(root, ctx) {
          ${rec.s === 'mastered' ? '<button class="btn btn-soft btn-block" data-move="again">Practice it again</button>' : ''}`;
     sheet({
       label: rec.w,
-      html: `${c ? renderEntry(c, { tools: false }) : `<h2 class="sheet-title">${esc(rec.w)}</h2><p class="sheet-text">The details for this word aren't saved on this phone. Tap Search on Google to look it up.</p>`}
+      html: `${c ? renderEntry(c, { tools: false, mine: !!rec.mine }) : `<h2 class="sheet-title">${esc(rec.w)}</h2><p class="sheet-text">The details for this word aren't saved on this phone. Tap Search on Google to look it up.</p>`}
         <div class="sheet-actions">
           ${actions}
           <button class="btn btn-ghost btn-block" data-search>${icon('search', 18)} Search on Google</button>
@@ -124,6 +126,9 @@ export function mount(root, ctx) {
       draw();
     } else if (el.dataset.act === 'open') openWord(el.dataset.id);
     else if (el.dataset.act === 'learn') go('learn');
+    else if (el.dataset.act === 'add') {
+      openAddWord({ store, engine, onAdded: () => { tab = 'learning'; query = ''; draw(); } });
+    }
   };
 
   draw();

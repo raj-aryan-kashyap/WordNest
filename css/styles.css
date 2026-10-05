@@ -835,3 +835,18 @@ body.no-tabbar .toast-root { bottom: calc(var(--safe-b) + 24px); }
 .more summary::-webkit-details-marker { display: none; }
 .more summary::before { content: "+"; margin-right: 8px; font-weight: 700; }
 .more[open] summary::before { content: "\2212"; }
+.tag--ai { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); background: var(--accent-soft); }
+
+/* ---------- 17. Add your own word ---------- */
+.tag--mine { display: inline-flex; align-items: center; gap: 4px; color: var(--lilac); background: rgba(184, 169, 232, .14); }
+.mine-badge {
+  display: inline-flex; align-items: center; gap: 3px; vertical-align: middle;
+  margin-left: 8px; padding: 1px 7px; border-radius: var(--r-pill);
+  font-family: var(--font-ui); font-size: .6875rem; font-weight: 700;
+  color: var(--lilac); background: rgba(184, 169, 232, .14);
+}
+.aw-msg { display: flex; gap: 12px; align-items: flex-start; margin-top: 18px; padding: 14px; border-radius: var(--r-md); background: var(--bg); color: var(--accent); }
+.aw-msg > div { color: var(--text); }
+.aw-loading { margin-top: 18px; }
+.aw-source { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: .8125rem; margin-top: 8px; }
+.sheet .entry-tools { display: none; }

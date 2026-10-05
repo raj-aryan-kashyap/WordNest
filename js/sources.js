@@ -42,6 +42,27 @@ export async function datamuseRelated(keyword) {
   return (Array.isArray(list) ? list : []).map(parseDatamuse).filter(Boolean);
 }
 
+/** How common a word is, as our 1-5 level. Defaults to 3 if unknown. */
+export async function levelForWord(word) {
+  try {
+    const list = await fetchJSON(`https://api.datamuse.com/words?sp=${encodeURIComponent(word)}&md=f&max=1`, {}, 6000);
+    const ft = (list[0]?.tags || []).find((t) => t.startsWith('f:'));
+    return ft ? freqToLevel(parseFloat(ft.slice(2))) : 3;
+  } catch {
+    return 3;
+  }
+}
+
+/** "Did you mean" suggestions for a misspelled word. */
+export async function spellingSuggestions(word) {
+  try {
+    const list = await fetchJSON(`https://api.datamuse.com/sug?s=${encodeURIComponent(word)}&max=6`, {}, 6000);
+    return list.map((x) => x.word).filter((w) => w && w.toLowerCase() !== word.toLowerCase()).slice(0, 4);
+  } catch {
+    return [];
+  }
+}
+
 /* ---------- Free Dictionary ---------- */
 
 /** Returns { ipa, audio, pos, meaning, examples } or null if the word is unknown. */

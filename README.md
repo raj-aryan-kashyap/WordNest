@@ -15,6 +15,9 @@ Plain HTML, CSS and JavaScript. No build step. Free to host on GitHub Pages.
 - **Search on Google** opens Google for the word's meaning in English and Hindi.
 - From day 2, a 5-word daily revision quiz. Right answers space a word out,
   wrong answers bring it back sooner (also as quick checks while learning).
+- **Add your own word** (My words > Add a word): type it, and the meaning, pronunciation,
+  examples and Hindi are filled in for free. It shows "Added by you" in the app and
+  "Added by user" in the sheet.
 - Streak with a 7-day strip. No daily limit on learning.
 - Works offline after the first visit. Optional free cloud sync.
 
@@ -65,6 +68,7 @@ Vocabulary_App/
 | `library.js` | Sends words to the sheet's Library and takes new ones back |
 | `sources.js` | Free online word sources and the optional Gemini key |
 | `status.js`, `statusview.js` | The status icon and its details sheet |
+| `addword.js` | "Add your own word": look up, fill in details, save |
 | `ui.js`, `components.js` | Buttons, cards, toasts, sheets, icons |
 | `data/seed.js` | The 161 built-in starter words |
 | `screens/*.js` | One file per screen: onboarding, home, learn, review, words, me |
@@ -138,12 +142,15 @@ security: don't reuse an important PIN.
 
 ## Smarter word picks (optional)
 
-**Recommended:** put a free Gemini key in your Google Sheet (WordNest menu > Set Gemini key).
+Put a free Gemini key in your Google Sheet (WordNest menu > Set Gemini key).
 The script calls Gemini for every phone, adds the words to the Library, and keeps
 usage under a daily cap. Full steps: `google-sheet/1_SETUP_STEPS.txt`, section C.
 The small round icon next to the streak shows sync and word-finding status; tap it for details.
 
-### Older option: key on the phone
+### Key on the phone (legacy)
+
+No longer shown in the app. Anyone who saved a phone key before 1.5.0 keeps using it silently.
+The text below is kept for reference.
 
 Without any key, words come from the starter pack, then from free sources:
 Datamuse (related words and how common they are), Free Dictionary

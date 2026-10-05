@@ -1,0 +1,203 @@
+==============================================================
+ WORDNEST SYNC: SETUP STEPS
+ Turn on cross-device sync and the shared word Library. Free.
+==============================================================
+
+FILES IN THIS FOLDER
+  1_SETUP_STEPS.txt                 This guide (no code inside).
+  2_APPS_SCRIPT_CODE.txt            The Apps Script. Open it, Ctrl+A, Ctrl+C.
+  3_SPARE_SHEET_WordNest_Sync.xlsx  A ready, formatted sheet with the
+                                    Library already filled. Upload to
+                                    Google Drive if you need a fresh one.
+
+
+--------------------------------------------------------------
+ A. FIRST-TIME SETUP (about 5 minutes)
+--------------------------------------------------------------
+
+ 1. Get the sheet into Google Drive.
+    Upload 3_SPARE_SHEET_WordNest_Sync.xlsx to Drive. Right-click it >
+    Open with > Google Sheets. Then File > Save as Google Sheets.
+    Use that Google Sheets copy from now on.
+
+ 2. In the sheet: Extensions > Apps Script.
+
+ 3. Delete the sample code ("function myFunction...").
+
+ 4. Open 2_APPS_SCRIPT_CODE.txt on your computer.
+    Press Ctrl+A, then Ctrl+C.
+    Click in the Apps Script editor and press Ctrl+V.
+    Click the Save icon. Name the project "WordNest Sync".
+
+ 5. Click Deploy > New deployment.
+    Click the gear next to "Select type" and choose "Web app".
+      Description:     WordNest sync
+      Execute as:      Me
+      Who has access:  Anyone
+    Click Deploy.
+
+ 6. Click "Authorize access" and pick your Google account.
+    Google may say "Google hasn't verified this app". That is normal for
+    your own script: click Advanced > Go to WordNest Sync (unsafe) > Allow.
+
+ 7. Copy the "Web app" URL. It looks like:
+    https://script.google.com/macros/s/AKfy...long code.../exec
+
+ 8. Check it works: open the URL in a private / incognito window.
+    You should see:
+    {"ok":true,"app":"WordNest","message":"Sync is running."}
+    If you see a Google sign-in page instead, "Who has access" is not
+    set to Anyone (see Troubleshooting).
+
+ 9. In the app folder, open js/config.js and set:
+      SYNC_URL: 'paste your Web app URL here',
+    Also change VERSION in js/config.js and sw.js to a new number
+    (for example 1.3.0 and 'wn-1.3.0'). Upload to GitHub.
+
+10. Reload the sheet. A "WordNest" menu appears at the top.
+    Click WordNest > Add starter words to Library.
+    The Library tab fills with all the built-in words.
+
+11. On your phone: close and reopen the app. Go to
+    Me > Sync across devices. Pick a name and a 4 to 8 number PIN.
+    Tap "Turn on sync". A row appears in the Users tab.
+
+12. On another phone: tap "I already use WordNest" on the first screen,
+    and use the same name and PIN.
+
+
+--------------------------------------------------------------
+ B. UPDATE AN EXISTING SETUP TO A NEW SCRIPT VERSION
+--------------------------------------------------------------
+Use this every time you get a new 2_APPS_SCRIPT_CODE.txt.
+
+ 1. In the sheet: Extensions > Apps Script.
+ 2. Click in the editor, press Ctrl+A, then Delete.
+ 3. Open the new 2_APPS_SCRIPT_CODE.txt, Ctrl+A, Ctrl+C, then Ctrl+V
+    in the editor. Save.
+ 4. Deploy > Manage deployments > pencil icon > Version: New version >
+    Deploy. The URL stays the same, so the app keeps working.
+    (Don't use "New deployment": that makes a new URL.)
+ 5. Reload the sheet and click WordNest > Add starter words to Library.
+    It only adds words that are missing, so it is safe to click again.
+
+
+--------------------------------------------------------------
+ C. SMART WORD PICKS WITH GEMINI (free, about 3 minutes)
+--------------------------------------------------------------
+Gemini picks new words from how you learn: your goals, your level,
+words you know, words you marked new, and words you got wrong.
+The key stays in your sheet, so every phone gets smart picks and every
+new word goes into your Library.
+
+ 1. Go to https://aistudio.google.com/apikey with your personal
+    Google account. Click "Create API key". Copy it.
+ 2. In the sheet: WordNest > Set Gemini key. Paste the key. OK.
+ 3. WordNest > Test Gemini. You should see "Gemini works".
+ 4. Make sure the newest script is deployed (section B, step 4).
+
+That's all. In the app, tap the small round status icon next to your
+streak to see "Smart picks: Gemini via your sheet, 3 of 25 used today".
+
+Staying inside the free limit (already built in):
+  - Gemini is only asked when fewer than 10 good-fit words are left.
+    Library words and starter words are used first.
+  - Each call asks for 12 words.
+  - At least 30 seconds between calls, at most 25 calls a day
+    (300 words a day, far more than anyone learns).
+  - If Google says "too many requests", the app waits 5 minutes and
+    uses free dictionary words meanwhile.
+  - To change the daily cap: Extensions > Apps Script > Project
+    Settings (gear) > Script properties > add AI_DAILY_LIMIT, e.g. 15.
+  - To change the model: add GEMINI_MODEL, e.g. gemini-2.5-flash-lite.
+    You can see your real free limits at https://aistudio.google.com
+    (they are per Google project and reset at midnight Pacific time).
+
+Quality checks on every Gemini word (in the script):
+  - Never a word you, or anyone in the Library, already has.
+  - The past, present and future examples must really use the word.
+  - Short, simple meaning; Hindi must be in Devanagari, else left out.
+
+Note: on Google's free tier, Google may use prompts to improve its
+products. The app only sends words, goals and levels, never your name,
+PIN or anything personal.
+
+
+--------------------------------------------------------------
+ D. THE WORDNEST MENU (inside the sheet)
+--------------------------------------------------------------
+  Add starter words to Library   Adds any built-in words missing from
+                                 the Library tab.
+  Set Gemini key                 Turns on smart word picks.
+  Test Gemini                    Checks the key works.
+  Smart picks used today         Shows today's usage.
+  Format tabs again              Restores colours, notes and filters.
+  Check setup                    Shows your Web app URL.
+
+
+--------------------------------------------------------------
+ E. WHAT EACH TAB HOLDS
+--------------------------------------------------------------
+Start here
+  Guide and live totals.
+Users
+  A to J  readable totals: learning, mastered, known, streak, last sync.
+  K on    the app's full saved data as text, split into parts. Don't edit.
+Words
+  One row per word per person: status, box, next revision, right,
+  wrong, accuracy. Rebuilt on every sync, so don't edit.
+Library
+  The master list of words. One row per word for everyone: context,
+  word, level, meaning, how to say it, past / present / future
+  examples, Hindi, source, first added date, weekday, added by, and
+  who else uses it. Sorted by context, newest first.
+  On every sync, each person's app gets up to 40 Library words they
+  haven't seen yet, matching their goals first.
+  You CAN edit meanings or Hindi here; the fix reaches anyone who
+  gets that word next.
+
+
+--------------------------------------------------------------
+ F. TROUBLESHOOTING
+--------------------------------------------------------------
+"Couldn't reach the sync server"
+   The phone is offline, or SYNC_URL is wrong. Open the URL in a
+   browser and check you see "Sync is running".
+
+The URL shows a Google sign-in page
+   Deploy > Manage deployments > pencil > Who has access: Anyone >
+   Deploy. Work or school accounts may not allow "Anyone"; use a
+   personal Gmail account instead.
+
+"That PIN is wrong for this name"
+   Use the same name and PIN as on your other phone. Forgot the PIN?
+   Delete your row in the Users tab, then sign in again with a new
+   PIN. Your phone uploads the words it has saved.
+
+The app still says "Sync isn't set up"
+   The phone has the old version. Check step A9 (VERSION), then close
+   and reopen the app.
+
+No WordNest menu in the sheet
+   Reload the sheet. The menu appears a few seconds after it opens.
+
+The Library tab is empty or short
+   Click WordNest > Add starter words to Library.
+
+Status icon shows a red dot
+   Tap it to see what went wrong (offline, sync error, or Gemini busy).
+   Use "Sync now" or "Find new words now" to retry.
+
+"Gemini did not work: The key was refused"
+   Create a new key at aistudio.google.com/apikey and set it again.
+
+Syncs feel slow with thousands of words
+   In the script, set WRITE_WORDS_TAB = false, then do section B.
+   Sync still works; only the Words tab stops updating.
+
+
+--------------------------------------------------------------
+ G. PRIVACY
+--------------------------------------------------------------
+Your PIN is never stored. The app sends a one-way hash of name + PIN.
+Fine for a personal project, but don't reuse an important PIN.

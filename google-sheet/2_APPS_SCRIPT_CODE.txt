@@ -1,0 +1,819 @@
+/**
+ * ============================================================
+ *  WordNest sync server
+ *  Google Apps Script + Google Sheet. Free, no other services.
+ * ============================================================
+ *
+ *  SETUP (about 5 minutes)
+ *  1. Open the WordNest Sync Google Sheet.
+ *  2. Extensions > Apps Script. Delete the sample code, paste this file, Save.
+ *  3. Deploy > New deployment > Select type: Web app.
+ *       Execute as:      Me
+ *       Who has access:  Anyone
+ *  4. Approve the permissions, then copy the Web app URL (it ends in /exec).
+ *  5. Paste the URL into js/config.js as SYNC_URL in the app, and push to GitHub.
+ *
+ *  UPDATING THIS SCRIPT LATER
+ *  Deploy > Manage deployments > pencil icon > Version: New version > Deploy.
+ *  This keeps the same URL, so the app keeps working.
+ *
+ *  TABS IT USES
+ *  Users  One row per person. Readable totals, then the app's raw data.
+ *  Words    One row per word per person, rewritten on every sync. Read only.
+ *  Library  Master list of every word anyone has seen, with its full card,
+ *           sorted by context then newest. New words are added on each sync,
+ *           and words a person hasn't seen yet are sent back to their app.
+ *  Missing tabs are created and formatted automatically. A new Library tab
+ *  starts filled with the app's built-in starter words.
+ *
+ *  SMART WORD PICKS (optional, free)
+ *  Get a free key at https://aistudio.google.com/apikey, then in the sheet
+ *  click WordNest > Set Gemini key. The key is stored in this script's
+ *  properties, never on phones. Calls are capped (see AI settings below).
+ *
+ *  SECURITY
+ *  The app sends a hash of name + PIN, never the PIN itself. Good enough for
+ *  a personal project. Don't reuse an important PIN.
+ */
+
+/* ---------- Settings ---------- */
+
+var USERS_TAB = 'Users';
+var WORDS_TAB = 'Words';
+var LIBRARY_TAB = 'Library';
+var WRITE_WORDS_TAB = true;  // set to false if syncs ever feel slow with thousands of words
+var CHUNK = 45000;           // characters per data cell (a cell holds up to 50,000)
+
+/* Users tab columns (1 = column A). The app's raw data starts at DATA. */
+var COL = {
+  USER: 1, PIN: 2, LAST_SYNC: 3, LEARNING: 4, MASTERED: 5, KNOWN: 6,
+  STREAK: 7, DAYS: 8, LAST_ACTIVE: 9, PARTS: 10, DATA: 11
+};
+var USERS_HEADERS = ['User', 'PIN (hashed)', 'Last sync', 'Learning', 'Mastered', 'Known',
+  'Streak (days)', 'Days practiced', 'Last active', 'Data parts', 'App data 1'];
+
+var WORDS_HEADERS = ['User', 'Word', 'Status', 'Box (0-7)', 'Next revision', 'Right', 'Wrong',
+  'Accuracy', 'Added', 'Last revised'];
+
+var LIB_HEADERS = ['Context', 'Word', 'Level (1-5)', 'Meaning', 'Say it', 'IPA', 'Part of speech',
+  'Past', 'Present', 'Future', 'Other examples', 'Hindi', 'Hindi meaning', 'Source',
+  'First added', 'Day', 'Added by', 'Also used by', 'Topics', 'Word key'];
+/* Library columns, 0-based for row arrays */
+var L = { CTX: 0, WORD: 1, LEVEL: 2, MEANING: 3, SAY: 4, IPA: 5, POS: 6, PAST: 7, PRESENT: 8, FUTURE: 9,
+  OTHER: 10, HI: 11, HIM: 12, SOURCE: 13, ADDED: 14, DAY: 15, BY: 16, ALSO: 17, TOPICS: 18, KEY: 19 };
+var LIB_OFFER = 40; // words sent back to the app per sync
+
+/* Notes shown when you hover a header cell */
+var USERS_NOTES = ['The name chosen in the app, in lowercase. One row per person.',
+  'A one-way hash of name and PIN. The real PIN is never stored.',
+  "When this person's phone last synced.",
+  'Words marked "New to me" that are still being revised.',
+  'Words remembered for about a month.',
+  'Words marked "I know this".',
+  'Days in a row with practice, up to today.',
+  'All days with at least one word learned or revised.',
+  'The last day with practice.',
+  "How many App data cells hold this person's saved data.",
+  "The app's saved data as text, split across cells when long. Written by the script. Don't edit."];
+var LIB_NOTES = ['What the word is for: a ready-made goal, a topic, or the goal the person wrote.',
+  'The English word or phrase. One row per word for everyone.', '1 is very easy, 5 is advanced.',
+  'Simple English meaning.', 'Easy way to say it. Capitals show the stressed part.', 'Dictionary pronunciation.',
+  'Noun, verb, adjective and so on.', 'Example in the past tense.', 'Example in the present tense.', 'Example in the future tense.',
+  'Extra examples from the dictionary, split by |.', 'Hindi word.', 'Hindi explanation.',
+  'Where the word came from: Starter pack, AI, Dictionary or Library.', 'The first day anyone added it.', 'Weekday of First added.',
+  'Who added it first.', 'Other people who have it in their app.', "The app's topic tags. Used by the app.",
+  "The app's id for the word. Don't edit."];
+var WORDS_NOTES = ['Whose word this is. Matches the User column in Users.',
+  'The English word or phrase.',
+  'Learning, Mastered or Known.',
+  'Revision level. Right answers move a word up, wrong answers down two. 6 and up is Mastered.',
+  'When the word comes back in daily revision. Amber means due today or overdue.',
+  'Right answers in quizzes.', 'Wrong answers in quizzes.',
+  'Right / (Right + Wrong). A formula, so it always matches the two columns.',
+  'The day the word was first marked in the app.', 'The last day it was in a quiz.'];
+
+/* Smart word picks with Gemini. Change these to tune cost and speed. */
+var AI = {
+  MODEL: 'gemini-2.5-flash',          // main model (free tier)
+  FALLBACK_MODEL: 'gemini-2.5-flash-lite',
+  DAILY_LIMIT: 25,                    // Gemini calls per day for the whole sheet (12 words each)
+  MIN_GAP_SECONDS: 30,                // never call more often than this
+  COOLDOWN_MINUTES: 5,                // pause after Google says "too many requests"
+  WORDS_PER_CALL: 12
+};
+
+/* Palette (matches the app) */
+var C = {
+  ink: '#1A2431', inkText: '#FFFFFF', accent: '#2E8C7E', accentSoft: '#E3F4F0',
+  raw: '#5B6B7C', rawSoft: '#EEF1F4', band: '#F7F9FA', line: '#D5DCE3',
+  learning: '#EDE8FB', learningText: '#4B3D8F', mastered: '#E2F5E8', masteredText: '#1F6B3A',
+  known: '#EFF1F3', knownText: '#5B6B7C'
+};
+
+/* ---------- Web app entry points ---------- */
+
+/** Visiting the URL in a browser shows this. Handy to check the deployment works. */
+function doGet() {
+  return out({ ok: true, app: 'WordNest', message: 'Sync is running.' });
+}
+
+/** All app requests arrive here as POST with a JSON body. */
+function doPost(e) {
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+    var req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    var user = String(req.user || '').trim().toLowerCase();
+    var pin = String(req.pin || '');
+
+    if (!/^[a-z0-9._-]{2,40}$/.test(user)) return out({ ok: false, code: 'bad_user', error: 'Use 2 to 40 letters or numbers for your name.' });
+    if (!/^[a-f0-9]{64}$/.test(pin)) return out({ ok: false, code: 'bad_pin', error: 'That PIN was not sent correctly.' });
+
+    var sheet = getUsersSheet();
+    var row = findRow(sheet, user);
+
+    // Sign in, or create the account if the name is new.
+    if (req.action === 'login') {
+      if (row === -1) {
+        sheet.appendRow([user, pin, new Date(), 0, 0, 0, 0, 0, '', 0]);
+        return out({ ok: true, created: true });
+      }
+      if (sheet.getRange(row, COL.PIN).getValue() !== pin) return out({ ok: false, code: 'wrong_pin', error: 'That PIN is wrong for this name.' });
+      return out({ ok: true, created: false });
+    }
+
+    if (row === -1) return out({ ok: false, code: 'no_user', error: 'Account not found. Sign in again.' });
+    if (sheet.getRange(row, COL.PIN).getValue() !== pin) return out({ ok: false, code: 'wrong_pin', error: 'That PIN is wrong for this name.' });
+
+    // Merge the phone's data with the saved copy, save, and send the result back.
+    if (req.action === 'suggest') {
+      lock.releaseLock(); // Gemini can take a few seconds; don't block other syncs
+      return out(suggestWords(user, req));
+    }
+
+    if (req.action === 'ai_status') return out({ ok: true, ai: aiUsage() });
+
+    if (req.action === 'sync') {
+      var merged = mergeSnap(req.data || null, readData(sheet, row));
+      writeData(sheet, row, merged);
+      writeSummary(sheet, row, merged);
+      if (WRITE_WORDS_TAB) writeWords(user, merged);
+      var offer = [];
+      try {
+        writeLibrary(user, req.library || []);
+        offer = libraryOffer(merged, req.contexts || []);
+      } catch (libErr) {
+        console.warn('Library skipped: ' + libErr); // sync itself still succeeds
+      }
+      var ai = null;
+      try { ai = aiUsage(); } catch (aiErr) { /* never let usage info break a sync */ }
+      return out({ ok: true, data: merged, offer: offer, ai: ai });
+    }
+
+    return out({ ok: false, code: 'bad_action', error: 'Unknown action.' });
+  } catch (err) {
+    return out({ ok: false, code: 'server', error: 'Sync server error: ' + String((err && err.message) || err) });
+  } finally {
+    try { lock.releaseLock(); } catch (ignore) {}
+  }
+}
+
+/* ---------- Menu inside the sheet ---------- */
+
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu('WordNest')
+    .addItem('Add starter words to Library', 'fillStarterLibrary')
+    .addSeparator()
+    .addItem('Set Gemini key', 'setGeminiKey')
+    .addItem('Test Gemini', 'testGeminiMenu')
+    .addItem('Smart picks used today', 'showAiUsage')
+    .addSeparator()
+    .addItem('Format tabs again', 'formatAll')
+    .addItem('Check setup', 'checkSetup')
+    .addToUi();
+}
+
+function formatAll() {
+  formatUsers(getUsersSheet());
+  formatWords(getWordsSheet());
+  formatLibrary(getLibrarySheet());
+  SpreadsheetApp.getActive().toast('Tabs formatted.', 'WordNest');
+}
+
+function checkSetup() {
+  var ui = SpreadsheetApp.getUi();
+  var url = '';
+  try { url = ScriptApp.getService().getUrl() || ''; } catch (e) {}
+  ui.alert('WordNest setup',
+    url ? 'The web app is deployed.\n\nCopy this URL into SYNC_URL in js/config.js:\n' + url
+        : 'The web app is not deployed yet.\n\nGo to Extensions > Apps Script > Deploy > New deployment > Web app.\nExecute as: Me. Who has access: Anyone.',
+    ui.ButtonSet.OK);
+}
+
+/* ---------- Users tab ---------- */
+
+function getUsersSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(USERS_TAB);
+  if (!sheet) {
+    sheet = ss.insertSheet(USERS_TAB);
+    sheet.getRange(1, 1, 1, USERS_HEADERS.length).setValues([USERS_HEADERS]);
+    safely(function () { formatUsers(sheet); });
+  }
+  return sheet;
+}
+
+function formatUsers(sheet) {
+  var n = USERS_HEADERS.length;
+  sheet.setFrozenRows(1);
+  sheet.setFrozenColumns(1);
+  sheet.getRange(1, 1, 1, COL.PARTS).setBackground(C.ink).setFontColor(C.inkText).setFontWeight('bold');
+  sheet.getRange(1, COL.DATA, 1, Math.max(1, sheet.getMaxColumns() - COL.DATA + 1)).setBackground(C.raw).setFontColor(C.inkText).setFontWeight('bold');
+  sheet.getRange(1, 1, 1, n).setVerticalAlignment('middle');
+  sheet.setRowHeight(1, 34);
+  sheet.getRange('C:C').setNumberFormat('d mmm yyyy, hh:mm');
+  sheet.getRange('I:I').setNumberFormat('d mmm yyyy');
+  sheet.getRange('D:H').setHorizontalAlignment('center');
+  sheet.getRange(2, COL.PIN, sheet.getMaxRows() - 1, 1).setFontColor(C.raw);
+  sheet.getRange(2, COL.PARTS, sheet.getMaxRows() - 1, Math.max(1, sheet.getMaxColumns() - COL.PARTS + 1)).setFontColor(C.raw).setNumberFormat('@').setWrap(false);
+  var widths = [130, 110, 150, 85, 85, 85, 100, 110, 110, 90, 160];
+  for (var i = 0; i < widths.length; i++) sheet.setColumnWidth(i + 1, widths[i]);
+  sheet.getRange(1, 1, 1, USERS_NOTES.length).setNotes([USERS_NOTES]);
+  var all = sheet.getRange('A2:M1000');
+  sheet.setConditionalFormatRules([
+    SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=$G2>=7')
+      .setBackground('#FCEFD9').setFontColor('#8A5A12').setBold(true).setRanges([sheet.getRange('G2:G1000')]).build(),
+    SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=AND($A2<>"",MOD(ROW(),2)=0)')
+      .setBackground(C.band).setRanges([all]).build()
+  ]);
+  sheet.setTabColor(C.ink);
+}
+
+function findRow(sheet, user) {
+  var last = sheet.getLastRow();
+  if (last < 2) return -1;
+  var values = sheet.getRange(2, COL.USER, last - 1, 1).getValues();
+  for (var i = 0; i < values.length; i++) {
+    if (String(values[i][0]).toLowerCase() === user) return i + 2;
+  }
+  return -1;
+}
+
+/** The app's data is JSON split across cells from column K. Each part starts with "~". */
+function readData(sheet, row) {
+  var n = Number(sheet.getRange(row, COL.PARTS).getValue()) || 0;
+  if (!n) return null;
+  var parts = sheet.getRange(row, COL.DATA, 1, n).getValues()[0];
+  var json = parts.map(function (p) { return String(p).replace(/^~/, ''); }).join('');
+  try { return JSON.parse(json); } catch (e) { return null; }
+}
+
+function writeData(sheet, row, data) {
+  var json = JSON.stringify(data || {});
+  var parts = [];
+  for (var i = 0; i < json.length; i += CHUNK) parts.push('~' + json.slice(i, i + CHUNK));
+  var lastCol = sheet.getLastColumn();
+  if (lastCol >= COL.DATA) sheet.getRange(row, COL.DATA, 1, lastCol - COL.DATA + 1).clearContent();
+  sheet.getRange(row, COL.LAST_SYNC).setValue(new Date());
+  sheet.getRange(row, COL.PARTS).setValue(parts.length);
+  if (parts.length) {
+    ensureSize(sheet, row, COL.DATA + parts.length - 1);
+    var range = sheet.getRange(row, COL.DATA, 1, parts.length);
+    range.setNumberFormat('@');
+    range.setValues([parts]);
+    // Label any new data columns so the header row stays tidy.
+    for (var c = 0; c < parts.length; c++) {
+      var h = sheet.getRange(1, COL.DATA + c);
+      if (!h.getValue()) h.setValue('App data ' + (c + 1)).setBackground(C.raw).setFontColor(C.inkText).setFontWeight('bold');
+    }
+  }
+}
+
+/** Readable totals for the person's row. */
+function writeSummary(sheet, row, snap) {
+  var s = (snap && snap.state) || {};
+  var counts = { learning: 0, mastered: 0, known: 0 };
+  Object.keys(s.words || {}).forEach(function (id) {
+    var st = s.words[id].s;
+    if (counts[st] !== undefined) counts[st]++;
+  });
+  var days = (s.days || []).slice().sort();
+  var last = days.length ? toDate(days[days.length - 1]) : '';
+  sheet.getRange(row, COL.USER).setFontWeight('bold');
+  sheet.getRange(row, COL.PIN).setFontColor(C.raw);
+  sheet.getRange(row, COL.PARTS, 1, 4).setFontColor(C.raw).setWrap(false);
+  sheet.getRange(row, COL.LAST_SYNC).setNumberFormat('d mmm yyyy, hh:mm');
+  sheet.getRange(row, COL.LAST_ACTIVE).setNumberFormat('d mmm yyyy');
+  sheet.getRange(row, COL.LEARNING, 1, 6).setHorizontalAlignment('center');
+  sheet.getRange(row, COL.LEARNING, 1, 6).setValues([[
+    counts.learning, counts.mastered, counts.known, streak(days), days.length, last
+  ]]);
+}
+
+/** Days in a row up to today (or yesterday, if today has no practice yet). */
+function streak(days) {
+  var set = {};
+  days.forEach(function (d) { set[d] = 1; });
+  var d = new Date();
+  if (!set[key(d)]) d.setDate(d.getDate() - 1);
+  var n = 0;
+  while (set[key(d)]) { n++; d.setDate(d.getDate() - 1); }
+  return n;
+}
+
+/* ---------- Words tab (read only, rebuilt per person on each sync) ---------- */
+
+function getWordsSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(WORDS_TAB);
+  if (!sheet) {
+    sheet = ss.insertSheet(WORDS_TAB);
+    sheet.getRange(1, 1, 1, WORDS_HEADERS.length).setValues([WORDS_HEADERS]);
+    safely(function () { formatWords(sheet); });
+  }
+  return sheet;
+}
+
+function formatWords(sheet) {
+  sheet.setFrozenRows(1);
+  sheet.getRange(1, 1, 1, WORDS_HEADERS.length).setBackground(C.ink).setFontColor(C.inkText).setFontWeight('bold').setVerticalAlignment('middle');
+  sheet.setRowHeight(1, 34);
+  sheet.getRange('D:D').setHorizontalAlignment('center');
+  sheet.getRange('F:H').setHorizontalAlignment('center');
+  sheet.getRange('E:E').setNumberFormat('d mmm yyyy');
+  sheet.getRange('I:J').setNumberFormat('d mmm yyyy');
+  sheet.getRange('H:H').setNumberFormat('0%');
+  var widths = [110, 170, 100, 85, 120, 70, 70, 90, 110, 110];
+  for (var i = 0; i < widths.length; i++) sheet.setColumnWidth(i + 1, widths[i]);
+  sheet.getRange(1, 1, 1, WORDS_NOTES.length).setNotes([WORDS_NOTES]);
+  var rule = function (formula, range, bg, fg, bold) {
+    var b = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied(formula).setRanges([sheet.getRange(range)]);
+    if (bg) b.setBackground(bg);
+    if (fg) b.setFontColor(fg);
+    if (bold) b.setBold(true);
+    return b.build();
+  };
+  sheet.setConditionalFormatRules([
+    rule('=$C2="Learning"', 'C2:C20000', C.learning, C.learningText, true),
+    rule('=$C2="Mastered"', 'C2:C20000', C.mastered, C.masteredText, true),
+    rule('=$C2="Known"', 'C2:C20000', C.known, C.knownText, false),
+    rule('=AND($C2<>"Known",$E2<>"",$E2<=TODAY())', 'E2:E20000', '#FCEFD9', '#8A5A12', true),
+    rule('=AND($H2<>"",$H2<0.5)', 'H2:H20000', null, '#B5463B', true),
+    rule('=AND($A2<>"",MOD(ROW(),2)=0)', 'A2:J20000', C.band, null, false)
+  ]);
+  if (!sheet.getFilter()) sheet.getRange(1, 1, sheet.getMaxRows(), WORDS_HEADERS.length).createFilter();
+  sheet.setTabColor('#2E8C7E');
+}
+
+var STATUS_LABEL = { learning: 'Learning', mastered: 'Mastered', known: 'Known' };
+var STATUS_ORDER = { learning: 0, mastered: 1, known: 2 };
+
+function writeWords(user, snap) {
+  var sheet = getWordsSheet();
+  var words = (snap && snap.state && snap.state.words) || {};
+  var last = sheet.getLastRow();
+  var others = last >= 2
+    ? sheet.getRange(2, 1, last - 1, WORDS_HEADERS.length).getValues().filter(function (r) { return String(r[0]).toLowerCase() !== user; })
+    : [];
+
+  var mine = Object.keys(words).map(function (id) { return words[id]; }).sort(function (a, b) {
+    return (STATUS_ORDER[a.s] - STATUS_ORDER[b.s]) || String(a.due || '9').localeCompare(String(b.due || '9')) || String(a.w).localeCompare(String(b.w));
+  }).map(function (r) {
+    return [user, r.w, STATUS_LABEL[r.s] || r.s, r.s === 'known' ? '' : r.box,
+      r.s === 'known' ? '' : toDate(r.due), r.ok || 0, r.bad || 0, '', toDate(r.add), toDate(r.last)];
+  });
+
+  var rows = others.concat(mine);
+  if (last >= 2) sheet.getRange(2, 1, last - 1, WORDS_HEADERS.length).clearContent();
+  if (!rows.length) return;
+  ensureSize(sheet, rows.length + 1, WORDS_HEADERS.length);
+  // Accuracy is a formula so it stays correct if anyone changes Right or Wrong.
+  for (var i = 0; i < rows.length; i++) {
+    var r = i + 2;
+    rows[i][7] = '=IF(F' + r + '+G' + r + '=0,"",F' + r + '/(F' + r + '+G' + r + '))';
+  }
+  sheet.getRange(2, 1, rows.length, WORDS_HEADERS.length).setValues(rows);
+  // Keep formats tidy on rows the sheet has not formatted yet.
+  sheet.getRange(2, 5, rows.length, 1).setNumberFormat('d mmm yyyy');
+  sheet.getRange(2, 8, rows.length, 1).setNumberFormat('0%');
+  sheet.getRange(2, 9, rows.length, 2).setNumberFormat('d mmm yyyy');
+  sheet.getRange(2, 3, rows.length, 8).setHorizontalAlignment('center');
+  sheet.getRange(2, 2, rows.length, 1).setFontWeight('bold');
+}
+
+/* ---------- Library tab (master list of words) ---------- */
+
+function getLibrarySheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(LIBRARY_TAB);
+  if (!sheet) {
+    sheet = ss.insertSheet(LIBRARY_TAB);
+    sheet.getRange(1, 1, 1, LIB_HEADERS.length).setValues([LIB_HEADERS]);
+    safely(function () { formatLibrary(sheet); });
+    addStarterRows(sheet);
+  }
+  return sheet;
+}
+
+/* Topic tag to the Library's Context name (matches the app) */
+var TOPIC_NAME = { hr: 'Workplace and HR', cs: 'Customer care', corp: 'Office', tech: 'Tech', ai: 'AI',
+  comm: 'Speaking and writing', career: 'Interviews', exam: 'Exams', general: 'Everyday' };
+
+/** Menu item: add any starter words missing from the Library. Safe to run again. */
+function fillStarterLibrary() {
+  var sheet = getLibrarySheet();
+  var added;
+  try {
+    added = addStarterRows(sheet);
+  } catch (e) {
+    var err = 'Could not add starter words: ' + e.message;
+    console.error(err);
+    SpreadsheetApp.getActive().toast(err, 'WordNest', 15);
+    throw e;
+  }
+  var total = Math.max(0, sheet.getLastRow() - 1);
+  var msg = added ? added + ' starter words added. The Library now has ' + total + ' words.'
+                  : 'All ' + STARTER.length + ' starter words are already in the Library (' + total + ' words in total).';
+  SpreadsheetApp.getActive().toast(msg, 'WordNest', 8);
+  console.log(msg);
+}
+
+/** The app's built-in words (STARTER, at the end of this file) as Library rows. Returns how many were added. */
+function addStarterRows(sheet) {
+  var entries = STARTER.map(function (s) {
+    var tags = String(s[12]).split(',');
+    return { id: s[0], w: s[1], p: s[2], d: s[3], m: s[4], say: s[5], ipa: s[6], past: s[7], present: s[8], future: s[9],
+      other: '', hi: s[10], him: s[11], src: 'Starter pack', ctx: TOPIC_NAME[tags[0]] || 'Everyday', t: s[12], added: '' };
+  });
+  var before = Math.max(0, sheet.getLastRow() - 1);
+  writeLibrary('wordnest', entries, true);
+  return Math.max(0, sheet.getLastRow() - 1) - before;
+}
+
+function formatLibrary(sheet) {
+  var n = LIB_HEADERS.length;
+  sheet.setFrozenRows(1);
+  sheet.setFrozenColumns(2);
+  sheet.getRange(1, 1, 1, n).setBackground(C.ink).setFontColor(C.inkText).setFontWeight('bold').setVerticalAlignment('middle').setWrap(true);
+  sheet.getRange(1, L.TOPICS + 1, 1, 2).setBackground(C.raw);
+  sheet.setRowHeight(1, 34);
+  sheet.getRange(1, 1, 1, n).setNotes([LIB_NOTES]);
+  var widths = [150, 160, 80, 260, 140, 130, 110, 230, 230, 230, 230, 160, 230, 100, 110, 95, 100, 130, 110, 140];
+  for (var i = 0; i < widths.length; i++) sheet.setColumnWidth(i + 1, widths[i]);
+  sheet.getRange('A:A').setFontWeight('bold').setFontColor(C.accent);
+  sheet.getRange('B:B').setFontWeight('bold');
+  sheet.getRange('C:C').setHorizontalAlignment('center');
+  sheet.getRange('O:O').setNumberFormat('d mmm yyyy');
+  sheet.getRange('L:M').setFontFamily('Noto Sans Devanagari');
+  sheet.getRange('S:T').setFontColor(C.raw);
+  sheet.getRange(1, 1, sheet.getMaxRows(), n).setVerticalAlignment('top');
+  sheet.getRange(2, 4, sheet.getMaxRows() - 1, 10).setWrap(true);
+  sheet.setConditionalFormatRules([
+    SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=AND($B2<>"",MOD(ROW(),2)=0)')
+      .setBackground(C.band).setRanges([sheet.getRange('A2:T20000')]).build()
+  ]);
+  if (!sheet.getFilter()) sheet.getRange(1, 1, sheet.getMaxRows(), n).createFilter();
+  sheet.setTabColor('#B8A9E8');
+}
+
+/**
+ * Add new words to the Library. One row per word (matched by text, any case).
+ * A word someone else already added gets this person in "Also used by",
+ * and empty cells (for example a missing Hindi meaning) are filled in.
+ * Then the tab is sorted by Context, newest first, then Word.
+ */
+function writeLibrary(user, entries, isStarter) {
+  if (!entries.length) return;
+  var sheet = getLibrarySheet();
+  var n = LIB_HEADERS.length;
+  var last = sheet.getLastRow();
+  var rows = last >= 2 ? sheet.getRange(2, 1, last - 1, n).getValues() : [];
+  var index = {};
+  rows.forEach(function (r, i) { if (r[L.WORD]) index[String(r[L.WORD]).toLowerCase()] = i; });
+  var tz = Session.getScriptTimeZone();
+  var changed = false;
+
+  entries.forEach(function (e) {
+    var word = String(e.w || '').trim();
+    if (!word) return;
+    var k = word.toLowerCase();
+    var fields = [[L.MEANING, e.m], [L.SAY, e.say], [L.IPA, e.ipa], [L.POS, e.p], [L.PAST, e.past],
+      [L.PRESENT, e.present], [L.FUTURE, e.future], [L.OTHER, e.other], [L.HI, e.hi], [L.HIM, e.him]];
+    if (k in index) {
+      var row = rows[index[k]];
+      if (!isStarter && String(row[L.BY]) !== user) {
+        var also = String(row[L.ALSO] || '').split(', ').filter(String);
+        if (also.indexOf(user) === -1) { also.push(user); row[L.ALSO] = also.join(', '); changed = true; }
+      }
+      fields.forEach(function (f) { if (!row[f[0]] && f[1]) { row[f[0]] = f[1]; changed = true; } });
+      return;
+    }
+    var added = toDate(e.added) || new Date();
+    var r = new Array(n).fill('');
+    r[L.CTX] = e.ctx || 'Everyday';
+    r[L.WORD] = word;
+    r[L.LEVEL] = Math.round(Number(e.d) || 3);
+    fields.forEach(function (f) { r[f[0]] = f[1] || ''; });
+    r[L.SOURCE] = e.src || '';
+    r[L.ADDED] = added;
+    r[L.DAY] = Utilities.formatDate(added, tz, 'EEEE');
+    r[L.BY] = isStarter ? 'WordNest' : user;
+    r[L.TOPICS] = e.t || '';
+    r[L.KEY] = e.id || '';
+    index[k] = rows.length;
+    rows.push(r);
+    changed = true;
+  });
+
+  if (!changed || !rows.length) return;
+  ensureSize(sheet, rows.length + 1, n);
+  var range = sheet.getRange(2, 1, rows.length, n);
+  range.setValues(rows);
+  sheet.getRange(2, L.ADDED + 1, rows.length, 1).setNumberFormat('d mmm yyyy');
+  range.sort([{ column: L.CTX + 1, ascending: true }, { column: L.ADDED + 1, ascending: false }, { column: L.WORD + 1, ascending: true }]);
+}
+
+/** Library words this person doesn't have yet. Their goals' contexts first, then newest. */
+function libraryOffer(snap, contexts) {
+  var sheet = getLibrarySheet();
+  var last = sheet.getLastRow();
+  if (last < 2) return [];
+  var have = {};
+  var words = (snap && snap.state && snap.state.words) || {};
+  Object.keys(words).forEach(function (id) { have[String(words[id].w).toLowerCase()] = 1; });
+  var want = {};
+  contexts.forEach(function (c) { want[String(c).toLowerCase()] = 1; });
+
+  var rows = sheet.getRange(2, 1, last - 1, LIB_HEADERS.length).getValues().filter(function (r) {
+    var key = String(r[L.KEY]);
+    return r[L.WORD] && r[L.MEANING] && !have[String(r[L.WORD]).toLowerCase()] && key.indexOf('s:') !== 0;
+  });
+  rows.sort(function (a, b) {
+    var wa = want[String(a[L.CTX]).toLowerCase()] ? 0 : 1;
+    var wb = want[String(b[L.CTX]).toLowerCase()] ? 0 : 1;
+    return (wa - wb) || (new Date(b[L.ADDED]) - new Date(a[L.ADDED]));
+  });
+  return rows.slice(0, LIB_OFFER).map(function (r) {
+    return { id: r[L.KEY], w: r[L.WORD], d: r[L.LEVEL], m: r[L.MEANING], say: r[L.SAY], ipa: r[L.IPA], p: r[L.POS],
+      past: r[L.PAST], present: r[L.PRESENT], future: r[L.FUTURE], other: r[L.OTHER], hi: r[L.HI], him: r[L.HIM],
+      t: r[L.TOPICS], ctx: r[L.CTX] };
+  });
+}
+
+/* ---------- Smart word picks (Gemini, free tier) ---------- */
+
+function props() { return PropertiesService.getScriptProperties(); }
+
+/** Menu: paste the Gemini key. Stored in script properties, not in the sheet. */
+function setGeminiKey() {
+  var ui = SpreadsheetApp.getUi();
+  var res = ui.prompt('Set Gemini key',
+    'Paste your free key from https://aistudio.google.com/apikey\n(Leave empty and click OK to remove the key.)',
+    ui.ButtonSet.OK_CANCEL);
+  if (res.getSelectedButton() !== ui.Button.OK) return;
+  var key = res.getResponseText().trim();
+  if (key) { props().setProperty('GEMINI_API_KEY', key); ui.alert('Saved. Click WordNest > Test Gemini to check it.'); }
+  else { props().deleteProperty('GEMINI_API_KEY'); ui.alert('Key removed. The app will use free dictionary words.'); }
+}
+
+function testGeminiMenu() {
+  var ui = SpreadsheetApp.getUi();
+  var key = props().getProperty('GEMINI_API_KEY');
+  if (!key) return ui.alert('No key yet. Click WordNest > Set Gemini key first.');
+  try {
+    var r = callGemini(key, 'Reply with this JSON only: {"ok": true}', null);
+    ui.alert(r && r.json && r.json.ok ? 'Gemini works (' + r.model + '). Smart picks are on.' : 'Gemini answered, but not as expected. Try again later.');
+  } catch (e) {
+    ui.alert('Gemini did not work: ' + e.message);
+  }
+}
+
+function showAiUsage() {
+  var u = aiUsage();
+  SpreadsheetApp.getUi().alert(u.on ? 'Smart picks used today: ' + u.used + ' of ' + u.limit + ' calls (' + u.limit * AI.WORDS_PER_CALL + ' words max).' : 'Smart picks are off. Click WordNest > Set Gemini key.');
+}
+
+/** Today's usage. The count resets when the day changes in the script's time zone. */
+function aiUsage() {
+  var p = props();
+  var today = key(new Date());
+  var used = p.getProperty('ai_day') === today ? Number(p.getProperty('ai_used') || 0) : 0;
+  return { on: !!p.getProperty('GEMINI_API_KEY'), used: used, limit: Number(p.getProperty('AI_DAILY_LIMIT') || AI.DAILY_LIMIT) };
+}
+
+var WORD_SCHEMA = {
+  type: 'OBJECT',
+  properties: { words: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
+    word: { type: 'STRING' }, pos: { type: 'STRING' }, ipa: { type: 'STRING' }, say: { type: 'STRING' },
+    meaning: { type: 'STRING' }, note: { type: 'STRING' },
+    present: { type: 'STRING' }, past: { type: 'STRING' }, future: { type: 'STRING' },
+    hindi: { type: 'STRING' }, hindiMeaning: { type: 'STRING' },
+    level: { type: 'NUMBER' }, goals: { type: 'ARRAY', items: { type: 'STRING' } }
+  }, required: ['word', 'meaning', 'present', 'past', 'future', 'hindi', 'level', 'goals'] } } },
+  required: ['words']
+};
+
+/** One Gemini call. Falls back to the lighter model if the main one is missing. Throws Error with .code. */
+function callGemini(apiKey, prompt, schema) {
+  var models = [props().getProperty('GEMINI_MODEL') || AI.MODEL, AI.FALLBACK_MODEL];
+  var lastErr;
+  for (var i = 0; i < models.length; i++) {
+    var cfg = { responseMimeType: 'application/json', temperature: 0.8 };
+    if (schema) cfg.responseSchema = schema;
+    var res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + models[i] + ':generateContent', {
+      method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+      headers: { 'x-goog-api-key': apiKey },
+      payload: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: cfg })
+    });
+    var code = res.getResponseCode();
+    if (code === 200) {
+      var data = JSON.parse(res.getContentText());
+      var parts = (((data.candidates || [])[0] || {}).content || {}).parts || [];
+      var text = parts.map(function (p) { return p.text || ''; }).join('').replace(/```json|```/g, '').trim();
+      return { json: JSON.parse(text), model: models[i] };
+    }
+    lastErr = new Error(code === 429 ? 'Too many requests right now.' : code === 400 || code === 403 ? 'The key was refused. Check it in AI Studio.' : 'Gemini error ' + code + '.');
+    lastErr.code = code === 429 ? 'ai_busy' : code === 404 ? 'ai_model' : 'ai_error';
+    if (code !== 404) break; // only a missing model is worth retrying with the other one
+  }
+  throw lastErr;
+}
+
+/**
+ * Action "suggest": the app sends a prompt built from the learner's behaviour
+ * and the words it has seen. We add the Library's words to the avoid list,
+ * call Gemini, keep only good words, add them to the Library, and return them.
+ */
+function suggestWords(user, req) {
+  var p = props();
+  var apiKey = p.getProperty('GEMINI_API_KEY');
+  if (!apiKey) return { ok: false, code: 'no_key', error: 'Smart picks are off. Add a Gemini key in the sheet.', ai: aiUsage() };
+
+  var usage = aiUsage();
+  if (usage.used >= usage.limit) return { ok: false, code: 'ai_limit', error: "Today's smart picks are used up. More tomorrow.", ai: usage };
+  var now = Date.now();
+  var cool = Number(p.getProperty('ai_cooldown') || 0);
+  if (now < cool) return { ok: false, code: 'ai_busy', retryIn: Math.ceil((cool - now) / 1000), error: 'Gemini is busy. Trying again soon.', ai: usage };
+  var last = Number(p.getProperty('ai_last') || 0);
+  if (now - last < AI.MIN_GAP_SECONDS * 1000) return { ok: false, code: 'ai_wait', retryIn: Math.ceil((AI.MIN_GAP_SECONDS * 1000 - (now - last)) / 1000), ai: usage };
+  p.setProperty('ai_last', String(now));
+
+  // Words to avoid: what the app sent, plus everything already in the Library.
+  var avoid = {};
+  (req.avoid || []).forEach(function (w) { avoid[String(w).toLowerCase()] = 1; });
+  var lib = getLibrarySheet();
+  var lastRow = lib.getLastRow();
+  var libWords = lastRow >= 2 ? lib.getRange(2, L.WORD + 1, lastRow - 1, 1).getValues().map(function (r) { return String(r[0]); }) : [];
+  libWords.forEach(function (w) { avoid[w.toLowerCase()] = 1; });
+  var prompt = String(req.prompt || '').slice(0, 24000) +
+    (libWords.length ? '\nAlso never suggest these words, they are already in the shared library: ' + libWords.slice(-600).join(', ') : '');
+
+  var result;
+  try {
+    result = callGemini(apiKey, prompt, WORD_SCHEMA);
+  } catch (e) {
+    if (e.code === 'ai_busy') p.setProperty('ai_cooldown', String(now + AI.COOLDOWN_MINUTES * 60000));
+    return { ok: false, code: e.code || 'ai_error', error: e.message, ai: aiUsage() };
+  }
+  var today = key(new Date());
+  if (p.getProperty('ai_day') !== today) { p.setProperty('ai_day', today); p.setProperty('ai_used', '0'); }
+  p.setProperty('ai_used', String(Number(p.getProperty('ai_used') || 0) + 1));
+
+  var goalTags = req.goalTags || {};
+  var cards = cleanAiWords((result.json && result.json.words) || [], avoid, goalTags, req.contextNames || {});
+
+  // Add them to the Library straight away (one lock, like a sync).
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+    writeLibrary(user, cards.map(function (c) {
+      return { id: c.id, w: c.w, p: c.p, d: c.d, m: c.m, say: c.say, ipa: c.ipa, past: c.past, present: c.present, future: c.future,
+        other: '', hi: c.hi, him: c.him, src: 'AI (Gemini)', ctx: c.ctx, t: c.t.join(','), added: today };
+    }));
+  } catch (e) {
+    console.warn('Library write skipped: ' + e);
+  } finally {
+    try { lock.releaseLock(); } catch (ignore) {}
+  }
+  return { ok: true, cards: cards, model: result.model, ai: aiUsage() };
+}
+
+/** Keep only words that are new, complete and actually used in their examples. */
+function cleanAiWords(list, avoid, goalTags, contextNames) {
+  var out = [];
+  list.forEach(function (x) {
+    var w = String(x.word || '').trim();
+    var k = w.toLowerCase();
+    if (!w || w.length > 40 || /\d/.test(w) || avoid[k]) return;
+    var m = String(x.meaning || '').trim();
+    if (!m || m.split(/\s+/).length > 25) return;
+    var stem = k.split(/[\s-]+/)[0].replace(/(e|y)$/, '').slice(0, 6);
+    var ex = [x.past, x.present, x.future].map(function (s) { return String(s || '').trim(); });
+    var uses = ex.filter(function (s) { return s && s.toLowerCase().indexOf(stem) !== -1; }).length;
+    if (uses < 2) return; // examples must really use the word
+    var hi = String(x.hindi || '').trim();
+    if (!/[\u0900-\u097F]/.test(hi)) hi = '';
+    var ids = (x.goals || []).map(String);
+    var tags = [];
+    ids.forEach(function (id) { (goalTags[id] || [id]).forEach(function (t) { if (tags.indexOf(t) === -1) tags.push(t); }); });
+    if (!tags.length) tags = ['general'];
+    avoid[k] = 1;
+    out.push({
+      id: 'a:' + k.replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''), w: w, p: String(x.pos || ''), ipa: String(x.ipa || ''),
+      say: String(x.say || ''), m: m, note: String(x.note || '').trim(), past: ex[0], present: ex[1], future: ex[2],
+      hi: hi, him: hi ? String(x.hindiMeaning || '').trim() : '', d: Math.max(1, Math.min(5, Number(x.level) || 3)),
+      t: tags, ctx: contextNames[ids[0]] || TOPIC_NAME[tags[0]] || 'Everyday'
+    });
+  });
+  return out;
+}
+
+/* ---------- Helpers ---------- */
+
+/**
+ * Make sure the tab has room for `rows` x `cols` cells. Sheets imported from
+ * Excel often have only as many rows as their data, and writing past the edge
+ * fails with "coordinates are outside the dimensions of the sheet".
+ */
+function ensureSize(sheet, rows, cols) {
+  var maxR = sheet.getMaxRows();
+  if (maxR < rows) sheet.insertRowsAfter(maxR, rows - maxR + 200);
+  var maxC = sheet.getMaxColumns();
+  if (cols && maxC < cols) sheet.insertColumnsAfter(maxC, cols - maxC);
+}
+
+/** Run formatting without letting a styling problem stop the data from being written. */
+function safely(fn) {
+  try { fn(); } catch (e) { console.warn('Formatting skipped: ' + e); }
+}
+
+function key(d) {
+  return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+}
+
+/** "2026-10-05" to a real date, so the sheet can sort and format it. */
+function toDate(dayKey) {
+  if (!dayKey || !/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) return '';
+  var p = dayKey.split('-');
+  return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+}
+
+function out(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+/* ---------- Merge (keep in step with mergeSnap() in js/sync.js) ---------- */
+
+/**
+ * Combines two copies of a person's data:
+ *  words    per word, the newest change wins
+ *  history  joined, duplicates removed, last 1,500 kept
+ *  days     joined (for the streak)
+ *  reviews  a finished daily revision is never lost
+ *  profile and learner model: the newest one wins
+ */
+function mergeSnap(a, b) {
+  if (!a || !a.state) return b;
+  if (!b || !b.state) return a;
+  var A = a.state, B = b.state;
+  var newer = function (x, y) { return ((y && y.u) || 0) > ((x && x.u) || 0) ? y : x; };
+
+  var state = Object.assign({}, A);
+  state.profile = Object.assign({}, newer(A.profile, B.profile));
+  state.profile.onboarded = !!((A.profile && A.profile.onboarded) || (B.profile && B.profile.onboarded));
+  state.model = newer(A.model, B.model);
+
+  var words = Object.assign({}, A.words || {});
+  Object.keys(B.words || {}).forEach(function (id) {
+    var bw = B.words[id], aw = words[id];
+    if (!aw || (bw.u || 0) > (aw.u || 0)) words[id] = bw;
+  });
+  state.words = words;
+
+  var seen = {}, history = [];
+  (A.history || []).concat(B.history || []).forEach(function (h) {
+    var k = h.t + '|' + h.id + '|' + h.k;
+    if (!seen[k]) { seen[k] = 1; history.push(h); }
+  });
+  history.sort(function (x, y) { return x.t - y.t; });
+  state.history = history.slice(-1500);
+
+  var days = {};
+  (A.days || []).concat(B.days || []).forEach(function (d) { days[d] = 1; });
+  state.days = Object.keys(days).sort();
+
+  var reviews = Object.assign({}, B.reviews || {}, A.reviews || {});
+  Object.keys(B.reviews || {}).forEach(function (d) {
+    if (B.reviews[d].done && !(A.reviews && A.reviews[d] && A.reviews[d].done)) reviews[d] = B.reviews[d];
+  });
+  state.reviews = reviews;
+
+  delete state.sync;
+  return { state: state, cards: Object.assign({}, b.cards || {}, a.cards || {}) };
+}
+
+/* ---------- Starter words (keep at the end; regenerate, don't edit by hand) ---------- */
+
+// STARTER:BEGIN (generated from js/data/seed.js by tools/build-gs-starter.mjs, 161 words)
+var STARTER = [["s:ticket","ticket","noun",1,"A record of a customer's problem in the support system.","TIK-it","/ˈtɪkɪt/","I closed twenty tickets yesterday.","Each ticket has its own number.","I will open a ticket for your request.","टिकट (शिकायत का रिकॉर्ड)","सिस्टम में दर्ज ग्राहक की समस्या का रिकॉर्ड।","cs,tech"],["s:refund","refund","noun, verb",1,"Money given back to a customer.","REE-fund","/ˈriːfʌnd/","We refunded the full amount last week.","The refund takes five to ten days.","You will get a refund for this month.","रिफंड, धनवापसी","ग्राहक को उसका पैसा वापस देना।","cs"],["s:feedback","feedback","noun",1,"Comments about how good or bad something is.","FEED-bak","/ˈfiːdbæk/","My manager gave me useful feedback.","We read all customer feedback.","I will share your feedback with the product team.","प्रतिक्रिया, राय","किसी चीज़ के अच्छे या बुरे होने पर दी गई राय।","corp,cs"],["s:resolve","resolve","verb",1.5,"To fix a problem or find an answer to it.","ri-ZOLV","/rɪˈzɒlv/","She resolved the login problem in five minutes.","I resolve most billing issues in one call.","We will resolve this for you today.","सुलझाना, हल करना","किसी समस्या को ठीक करना या उसका हल निकालना।","cs,corp"],["s:subscription","subscription","noun",1.5,"A plan where you pay regularly to use a product.","sub-SKRIP-shun","/səbˈskrɪpʃn/","She canceled her subscription in May.","Your subscription renews every month.","Your new subscription will start tomorrow.","सदस्यता","नियमित भुगतान करके किसी सेवा का उपयोग करने की योजना।","cs,tech"],["s:billing","billing","noun",1.5,"Charging customers money for a product or service.","BIL-ing","/ˈbɪlɪŋ/","The billing error happened last month.","Billing questions go to a special team.","Billing will show the new price next month.","बिलिंग, बिल बनाना","ग्राहक से सेवा के लिए पैसे लेने की प्रक्रिया।","cs,corp"],["s:priority","priority","noun",1.5,"Something important that needs attention first.","pry-OR-uh-tee","/praɪˈɒrəti/","We gave his case high priority.","Payment issues are our top priority.","This will be my first priority tomorrow.","प्राथमिकता","वह काम जो सबसे ज़रूरी हो और पहले किया जाए।","corp"],["s:follow-up","follow up","phrasal verb",1.5,"To contact someone again to check or continue something.","FOL-oh up","/ˈfɒləʊ ʌp/","She followed up by email.","I follow up with customers after two days.","I will follow up once I hear from the team.","फिर से संपर्क करना","किसी बात की जानकारी के लिए दोबारा संपर्क करना।","cs,comm"],["s:escalate","escalate","verb",2,"To pass a problem to a higher team or person because you cannot fix it yourself.","ES-kuh-layt","/ˈeskəleɪt/","He escalated the ticket to the tech team.","I escalate the case when I can't fix it.","I will escalate this to my supervisor now.","आगे बढ़ाना (ऊपर भेजना)","समस्या को सीनियर टीम या मैनेजर के पास भेजना।","cs"],["s:troubleshoot","troubleshoot","verb",2,"To find the cause of a problem step by step and fix it.","TRUB-ul-shoot","/ˈtrʌblʃuːt/","We troubleshot the issue together on the call.","I troubleshoot app errors with users every day.","We will troubleshoot it after you restart the app.","समस्या का कारण ढूंढकर ठीक करना","कदम दर कदम किसी गड़बड़ी का कारण ढूंढना और उसे ठीक करना।","cs,tech"],["s:verify","verify","verb",2,"To check that something is true or correct.","VER-uh-fy","/ˈverɪfaɪ/","He verified the account details.","I need to verify your email address first.","We will verify the payment before the refund.","सत्यापित करना, पुष्टि करना","जांचना कि कोई चीज़ सही या सच है।","cs,corp"],["s:inquiry","inquiry","noun",2,"A question asking for information.","in-KWY-uh-ree","/ɪnˈkwaɪəri/","She sent an inquiry about her invoice.","We get many inquiries about pricing.","I will answer your inquiry by email.","पूछताछ","जानकारी के लिए पूछा गया सवाल।","cs,corp"],["s:prompt","prompt","noun",2,"The text or question you give to an AI tool.","prompt","/prɒmpt/","She changed her prompt and it worked.","A clear prompt gets a better answer.","I will send you an example prompt.","प्रॉम्प्ट (AI को दिया गया निर्देश)","AI टूल को दिया गया सवाल या निर्देश।","ai,tech"],["s:outage","outage","noun",2.5,"A time when a service stops working.","OW-tij","/ˈaʊtɪdʒ/","The outage lasted two hours.","There is an outage in Europe right now.","We will post an update if there is another outage.","सेवा ठप होना, आउटेज","वह समय जब कोई सेवा काम करना बंद कर देती है।","tech,cs"],["s:glitch","glitch","noun",2.5,"A small, short problem in a system.","glich","/ɡlɪtʃ/","The glitch stopped after the restart.","A glitch sometimes logs users out.","This glitch will be fixed in the next update.","छोटी तकनीकी गड़बड़ी","सिस्टम में थोड़ी देर की छोटी खराबी।","tech"],["s:limitation","limitation","noun",2.5,"Something a product or person cannot do.","lim-i-TAY-shun","/ˌlɪmɪˈteɪʃn/","We explained the limitation to the user.","This is a known limitation of the model.","The new version will remove this limitation.","सीमा, कमी","कोई चीज़ जो प्रोडक्ट या व्यक्ति नहीं कर सकता।","tech,ai"],["s:acknowledge","acknowledge","verb",2.5,"To say that you know about something or accept that it is true.","uhk-NOL-ij","/əkˈnɒlɪdʒ/","The team acknowledged the bug yesterday.","I always acknowledge the customer's problem first.","We will acknowledge your request within 24 hours.","स्वीकार करना","मानना या बताना कि आपको किसी बात की जानकारी है।","cs,comm"],["s:clarify","clarify","verb",2.5,"To make something easier to understand.","KLAIR-uh-fy","/ˈklærɪfaɪ/","She clarified the new refund rules.","Can you clarify what you mean?","I will clarify this with the billing team.","स्पष्ट करना","किसी बात को साफ़ और समझने में आसान बनाना।","comm"],["s:inconvenience","inconvenience","noun",2.5,"Trouble or problems caused to someone.","in-kun-VEE-nee-uns","/ˌɪnkənˈviːniəns/","The delay caused a lot of inconvenience.","We are sorry for the inconvenience.","This change will not cause any inconvenience.","असुविधा","किसी को हुई परेशानी या दिक्कत।","cs"],["s:frustration","frustration","noun",2.5,"The upset feeling when something is not working.","frus-TRAY-shun","/frʌˈstreɪʃn/","His frustration grew after the third error.","I understand your frustration.","A quick fix will reduce her frustration.","निराशा, झुंझलाहट","कुछ ठीक से न चलने पर होने वाली परेशानी या गुस्सा।","cs,comm"],["s:empathize","empathize","verb",3,"To understand and share someone's feelings.","EM-puh-thyz","/ˈempəθaɪz/","He empathized with the upset customer.","I empathize with how stressful this is.","Good agents will always empathize first.","सहानुभूति रखना","किसी की भावनाओं को समझना और महसूस करना।","cs,comm"],["s:workaround","workaround","noun",3,"A temporary way to avoid a problem until it is fixed.","WURK-uh-round","/ˈwɜːkəraʊnd/","I shared a workaround with the user.","There is a simple workaround for this bug.","We will find a workaround until the update is out.","अस्थायी उपाय","समस्या ठीक होने तक काम चलाने का कोई दूसरा तरीका।","tech,cs"],["s:credentials","credentials","noun",3,"Login details like your email and password.","kruh-DEN-shulz","/krəˈdenʃlz/","She entered the wrong credentials three times.","Never share your credentials with anyone.","You will get new credentials by email.","लॉगिन विवरण","लॉगिन करने की जानकारी, जैसे ईमेल और पासवर्ड।","tech"],["s:eligible","eligible","adjective",3,"Allowed to have or do something because you meet the rules.","EL-ij-uh-bul","/ˈelɪdʒəbl/","He was not eligible for the discount.","You are eligible for a full refund.","New users will be eligible after seven days.","पात्र, योग्य","नियमों के अनुसार कुछ पाने या करने का हक़दार।","cs,corp"],["s:backlog","backlog","noun",3,"A list of work that is waiting to be done.","BAK-log","/ˈbæklɒɡ/","We cleared the backlog by Friday.","Our team has a big backlog this week.","The backlog will grow if more agents are off.","बकाया काम","वह काम जो अभी होना बाकी है और जमा हो गया है।","corp"],["s:turnaround-time","turnaround time","noun",3,"How long it takes to finish a task or reply.","TURN-uh-round tym","/ˈtɜːnəraʊnd taɪm/","The turnaround time was slow last month.","Our turnaround time is under one day.","We will improve our turnaround time.","काम पूरा होने में लगने वाला समय","किसी काम को पूरा करने या जवाब देने में लगने वाला समय।","corp,cs"],["s:transparent","transparent","adjective",3,"Open and honest, not hiding anything.","trans-PAIR-unt","/trænsˈpærənt/","The team was transparent about the outage.","We are transparent about our prices.","I will be transparent about the timeline.","पारदर्शी","खुला और ईमानदार, कुछ भी न छुपाने वाला।","corp,comm"],["s:onboarding","onboarding","noun",3,"Helping new staff or users get started.","ON-bor-ding","/ˈɒnbɔːdɪŋ/","My onboarding was very well organized.","Onboarding takes two weeks here.","Your onboarding will start on Monday.","ऑनबोर्डिंग, नए लोगों को शुरुआत कराना","नए कर्मचारियों या यूज़र्स को काम शुरू करने में मदद की प्रक्रिया।","corp"],["s:authenticate","authenticate","verb",3.5,"To prove who you are, for example with a code or password.","aw-THEN-ti-kayt","/ɔːˈθentɪkeɪt/","He authenticated his account using Google.","Users authenticate with a code sent to their phone.","You will need to authenticate again after the update.","प्रमाणित करना","साबित करना कि आप वही हैं जो आप कहते हैं, जैसे कोड या पासवर्ड से।","tech"],["s:hallucination","hallucination","noun",3.5,"When an AI gives an answer that sounds right but is false.","huh-loo-si-NAY-shun","/həˌluːsɪˈneɪʃn/","The user reported a hallucination in the reply.","This answer is a hallucination, not a fact.","We will log this hallucination for the team.","AI द्वारा गढ़ी गई गलत जानकारी","जब AI सही लगने वाला लेकिन गलत जवाब देता है।","ai"],["s:compliance","compliance","noun",3.5,"Following rules, laws or company policies.","kum-PLY-uns","/kəmˈplaɪəns/","The team passed the compliance check.","Data privacy compliance is very important here.","Compliance will review the new script.","अनुपालन","नियमों, कानूनों या कंपनी की नीतियों का पालन करना।","corp"],["s:accommodate","accommodate","verb",3.5,"To give someone what they need or fit their request.","uh-KOM-uh-dayt","/əˈkɒmədeɪt/","The manager accommodated my shift change.","We try to accommodate every request.","We will accommodate you as best we can.","ज़रूरत पूरी करना, समायोजित करना","किसी की ज़रूरत या अनुरोध को पूरा करने की कोशिश करना।","cs,corp"],["s:proactive","proactive","adjective",3.5,"Acting early to stop problems before they happen.","proh-AK-tiv","/prəʊˈæktɪv/","She was proactive and warned the team early.","Good agents are proactive with updates.","We will be more proactive next quarter.","पहले से कदम उठाने वाला","समस्या आने से पहले ही कदम उठाने वाला।","corp"],["s:de-escalate","de-escalate","verb",3.5,"To calm a tense situation.","dee-ES-kuh-layt","/diːˈeskəleɪt/","He de-escalated the call with a quick apology.","A calm voice helps de-escalate angry calls.","I will try to de-escalate before I transfer the call.","तनाव कम करना","गुस्से या तनाव वाली स्थिति को शांत करना।","cs,comm"],["s:concise","concise","adjective",3.5,"Short and clear, with no extra words.","kun-SYS","/kənˈsaɪs/","Her summary was concise and helpful.","Keep your replies concise and friendly.","I will write a concise update for the team.","संक्षिप्त","छोटा और साफ़, बिना फालतू शब्दों के।","comm"],["s:reimburse","reimburse","verb",3.5,"To pay back money someone spent.","ree-im-BURS","/ˌriːɪmˈbɜːs/","They reimbursed me for the taxi.","The company reimburses travel costs.","We will reimburse the extra charge.","खर्च लौटाना, प्रतिपूर्ति करना","किसी के खर्च किए गए पैसे वापस करना।","corp,cs"],["s:discrepancy","discrepancy","noun",4,"A difference between two things that should be the same.","dis-KREP-un-see","/dɪˈskrepənsi/","We found a discrepancy between the two reports.","There is a discrepancy in your invoice.","I will check the discrepancy and get back to you.","विसंगति, अंतर","दो चीज़ों में अंतर जो एक जैसी होनी चाहिए थीं।","corp,cs"],["s:intermittent","intermittent","adjective",4,"Stopping and starting again, not happening all the time.","in-ter-MIT-unt","/ˌɪntəˈmɪtənt/","The errors were intermittent all morning.","The user has intermittent connection problems.","Intermittent issues will be harder to track.","रुक-रुककर होने वाला","जो लगातार न होकर बीच-बीच में होता है।","tech"],["s:latency","latency","noun",4,"The delay before a system responds.","LAY-tun-see","/ˈleɪtənsi/","Latency was higher during the update.","High latency makes the chat feel slow.","The fix will reduce latency.","विलंब, देरी","सिस्टम के जवाब देने से पहले होने वाली देरी।","tech"],["s:mitigate","mitigate","verb",4,"To make something bad less serious.","MIT-i-gayt","/ˈmɪtɪɡeɪt/","We mitigated the risk by adding a backup.","Clear updates mitigate customer anger.","This step will mitigate future errors.","असर कम करना","किसी बुरी चीज़ के असर को कम करना।","corp"],["s:reiterate","reiterate","verb",4,"To say something again to make it clear.","ree-IT-uh-rayt","/riˈɪtəreɪt/","She reiterated that the data is safe.","I reiterate the steps at the end of each call.","I will reiterate the main points in my email.","दोहराना","बात को साफ़ करने के लिए दोबारा कहना।","comm"],["s:expedite","expedite","verb",4,"To make something happen faster.","EKS-puh-dyt","/ˈekspədaɪt/","They expedited the refund for her.","We can expedite urgent cases.","I will expedite your request today.","जल्दी करवाना","किसी काम को तेज़ी से पूरा करवाना।","cs,corp"],["s:rapport","rapport","noun",4,"A friendly connection with someone.","ra-POR","/ræˈpɔː/","He built good rapport with the client.","Building rapport makes calls easier.","Small talk will help you build rapport.","तालमेल, अच्छा संबंध","किसी के साथ अच्छा और दोस्ताना जुड़ाव।","comm,cs"],["s:articulate","articulate","verb",4,"To express ideas clearly in words.","ar-TIK-yoo-layt","/ɑːˈtɪkjuleɪt/","He articulated the problem very well.","She articulates hard ideas simply.","I will articulate my plan in the meeting.","स्पष्ट रूप से कहना","अपने विचार साफ़ शब्दों में बताना।","comm"],["s:accountability","accountability","noun",4,"Being responsible for your actions and results.","uh-kown-tuh-BIL-uh-tee","/əˌkaʊntəˈbɪləti/","He showed accountability for the mistake.","Our team values accountability.","Clear goals will improve accountability.","जवाबदेही","अपने काम और नतीजों की ज़िम्मेदारी लेना।","corp"],["s:comprehensive","comprehensive","adjective",4,"Including everything that is needed.","kom-pri-HEN-siv","/ˌkɒmprɪˈhensɪv/","She gave a comprehensive answer.","This guide is comprehensive and easy to follow.","We will run a comprehensive review next week.","व्यापक, विस्तृत","जिसमें सारी ज़रूरी बातें शामिल हों।","corp"],["s:adhere","adhere","verb",4,"To follow a rule or plan.","ud-HEER","/ədˈhɪə/","She adhered to the call script.","We adhere to strict privacy rules.","All agents will adhere to the new policy.","पालन करना","किसी नियम या योजना का पालन करना।","corp"],["s:deprecate","deprecate","verb",4.5,"To mark an old feature as no longer supported.","DEP-ruh-kayt","/ˈdeprəkeɪt/","They deprecated the old API last year.","The company deprecates old models over time.","This feature will be deprecated in March.","बंद करने के लिए चिह्नित करना","किसी पुराने फीचर को धीरे-धीरे बंद करने की घोषणा करना।","tech,ai"],["s:contingency","contingency","noun",4.5,"A plan for something that might happen.","kun-TIN-jun-see","/kənˈtɪndʒənsi/","The contingency plan saved the day.","We have a contingency plan for outages.","We will prepare a contingency for busy season.","आकस्मिक योजना","किसी संभावित घटना के लिए पहले से बनी योजना।","corp"],["s:meticulous","meticulous","adjective",4.5,"Very careful about small details.","muh-TIK-yuh-lus","/məˈtɪkjələs/","He was meticulous in checking each step.","She is meticulous with her case notes.","You will need to be meticulous with refunds.","बहुत बारीकी से काम करने वाला","छोटी-छोटी बातों पर बहुत ध्यान देने वाला।","corp"],["s:nuance","nuance","noun",4.5,"A small difference in meaning or feeling.","NOO-ahns","/ˈnjuːɑːns/","He missed the nuance in her message.","Tone has a lot of nuance in written chat.","With time you will notice every nuance.","बारीकी, सूक्ष्म अंतर","अर्थ या भावना में बहुत छोटा फर्क।","comm"],["s:pertinent","pertinent","adjective",5,"Directly related to the topic.","PUR-ti-nunt","/ˈpɜːtɪnənt/","She asked a pertinent question.","Please share only pertinent details.","I will add any pertinent notes to the ticket.","प्रासंगिक","जो विषय से सीधे जुड़ा हो।","comm,corp"],["s:substantiate","substantiate","verb",5,"To prove something with facts.","sub-STAN-shee-ayt","/səbˈstænʃieɪt/","He substantiated his report with logs.","Screenshots help substantiate the claim.","We will need data to substantiate this.","सबूत से साबित करना","तथ्यों या सबूत से किसी बात को साबित करना।","corp,comm"],["s:remediate","remediate","verb",5,"To fix a problem, often a serious or risky one.","ri-MEE-dee-ayt","/rɪˈmiːdieɪt/","They remediated the data issue overnight.","The security team remediates risks quickly.","We will remediate the bug in the next release.","सुधार करना, ठीक करना","किसी गंभीर समस्या या जोखिम को ठीक करना।","tech,corp"],["s:queue","queue","noun",1.5,"A line of calls or tickets waiting to be answered.","kyoo","/kjuː/","The queue was long after the outage.","There are thirty chats in the queue.","The queue will be quieter after lunch.","कतार, क्यू","इंतज़ार कर रही कॉल या टिकटों की लाइन।","cs"],["s:put-on-hold","put on hold","phrase",1.5,"To make a caller wait on the line for a short time.","put on HOHLD","/pʊt ɒn həʊld/","She put the customer on hold to check the account.","Can I put you on hold for a minute?","I will put you on hold while I ask my team.","होल्ड पर रखना","कॉल करने वाले को कुछ देर लाइन पर इंतज़ार करवाना।","cs"],["s:transfer","transfer","verb",1.5,"To send a call or case to another person or team.","trans-FUR","/trænsˈfɜː/","He transferred the chat to tier 2.","I transfer billing calls to finance.","I will transfer you to the right team.","स्थानांतरित करना, ट्रांसफर करना","कॉल या केस को दूसरी टीम या व्यक्ति के पास भेजना।","cs"],["s:callback","callback","noun",2,"A call you make back to a customer later.","KAWL-bak","/ˈkɔːlbæk/","I scheduled a callback for 3 p.m.","We offer a callback when the queue is long.","You will get a callback within a day.","वापसी कॉल","बाद में ग्राहक को वापस की गई कॉल।","cs"],["s:complaint","complaint","noun",1.5,"When a customer says they are unhappy about something.","kum-PLAYNT","/kəmˈpleɪnt/","He made a complaint about the delay.","Most complaints are about billing.","I will log your complaint today.","शिकायत","जब ग्राहक किसी बात से नाखुशी जताता है।","cs"],["s:apologize","apologize","verb",1.5,"To say sorry.","uh-POL-uh-jyz","/əˈpɒlədʒaɪz/","She apologized for the mistake.","I apologize for the wait.","I will apologize to the customer first.","माफ़ी माँगना","सॉरी कहना।","cs,comm"],["s:confirm","confirm","verb",1.5,"To say or check that something is true or final.","kun-FURM","/kənˈfɜːm/","He confirmed the refund by email.","Can you confirm your email address?","I will confirm the change in a minute.","पुष्टि करना","बताना या जांचना कि कोई बात सही या पक्की है।","cs,comm"],["s:urgent","urgent","adjective",1.5,"Needing attention right away.","UR-junt","/ˈɜːdʒənt/","She marked the ticket as urgent.","This is an urgent payment issue.","Urgent cases will go to the top of the queue.","अत्यावश्यक, ज़रूरी","जिस पर तुरंत ध्यान देना ज़रूरी हो।","cs,corp"],["s:pending","pending","adjective",2,"Waiting for an answer or action.","PEN-ding","/ˈpendɪŋ/","The case was pending for two days.","Your refund is still pending.","It will stay pending until we hear back.","लंबित","जिस पर अभी जवाब या कार्रवाई बाकी है।","cs"],["s:case-notes","case notes","noun",2,"Short notes about what happened with a customer's case.","kays NOHTS","/keɪs nəʊts/","I added case notes after the call.","Clear case notes save time for the next agent.","I will check your case notes first.","केस नोट्स","ग्राहक के मामले में क्या हुआ, उसके छोटे नोट्स।","cs"],["s:summarize","summarize","verb",2,"To give the main points in a few words.","SUM-uh-ryz","/ˈsʌməraɪz/","She summarized the meeting in three lines.","I always summarize the call at the end.","I will summarize the steps for you.","सारांश देना","मुख्य बातों को कम शब्दों में बताना।","comm,cs"],["s:status-update","status update","noun",2,"A short message about where something stands now.","STAY-tus UP-dayt","/ˈsteɪtəs ˈʌpdeɪt/","The customer asked for a status update.","I send a status update every evening.","We will post a status update in an hour.","स्थिति की जानकारी","किसी काम की अभी की स्थिति के बारे में छोटा संदेश।","corp,comm"],["s:coaching","coaching","noun",2,"Help from a lead to improve how you do your job.","KOH-ching","/ˈkəʊtʃɪŋ/","The coaching helped me sound calmer.","We get coaching every two weeks.","My team lead will give me coaching on tone.","मार्गदर्शन, कोचिंग","काम बेहतर करने के लिए टीम लीड से मिलने वाली मदद।","cs,corp"],["s:resolution","resolution","noun",2.5,"The answer or fix for a problem.","rez-uh-LOO-shun","/ˌrezəˈluːʃn/","We found a resolution after two calls.","The resolution is to reset your password.","I will email you once we have a resolution.","समाधान","किसी समस्या का हल।","cs"],["s:knowledge-base","knowledge base","noun",2.5,"A collection of help articles that agents and users can search.","NOL-ij bays","/ˈnɒlɪdʒ beɪs/","I updated the knowledge base article yesterday.","The answer is in the knowledge base.","The new guide will be in the knowledge base.","जानकारी संग्रह, नॉलेज बेस","सहायता लेखों का संग्रह जिसे खोजा जा सकता है।","cs,tech"],["s:handover","handover","noun",2.5,"Passing your work and its details to the next person.","HAND-oh-ver","/ˈhændəʊvə/","Her handover notes were very clear.","We do a handover at the end of each shift.","I will write a handover before I leave.","काम सौंपना, हैंडओवर","अपना काम और उसकी जानकारी अगले व्यक्ति को देना।","corp,cs"],["s:rephrase","rephrase","verb",2.5,"To say something again in different words.","ree-FRAYZ","/ˌriːˈfreɪz/","I rephrased the question to make it clearer.","Let me rephrase that.","I will rephrase the email to sound friendlier.","दूसरे शब्दों में कहना","बात को अलग शब्दों में दोबारा कहना।","comm,cs"],["s:csat","CSAT","noun",2.5,"Customer satisfaction score: how happy customers say they are.","SEE-sat","/ˈsiːsæt/","My CSAT went up after the coaching.","Our CSAT is above 90 percent.","A friendly tone will raise your CSAT.","ग्राहक संतुष्टि स्कोर","ग्राहक कितने खुश हैं, यह बताने वाला स्कोर।","cs,corp"],["s:kpi","KPI","noun",2.5,"Key performance indicator: a number used to measure how well you work.","kay pee EYE","/ˌkeɪ piː ˈaɪ/","My manager reviewed my KPIs yesterday.","CSAT is one of our main KPIs.","Next month we will track a new KPI.","मुख्य प्रदर्शन संकेतक (KPI)","काम कितना अच्छा हो रहा है, यह मापने वाला अंक।","corp,cs"],["s:sla","SLA","noun",3,"Service level agreement: the promised time to reply or fix something.","es el AY","/ˌes el ˈeɪ/","We missed the SLA during the outage.","The SLA for email is 24 hours.","We will meet the SLA this week.","सेवा स्तर समझौता (SLA)","जवाब देने या समस्या ठीक करने का वादा किया गया समय।","cs,corp"],["s:average-handle-time","average handle time","noun",3,"The average time spent on one call or chat, often called AHT.","AV-rij HAN-dul tym","/ˈævərɪdʒ ˈhændl taɪm/","My average handle time dropped last week.","Our average handle time is eight minutes.","Shorter notes will lower your average handle time.","औसत हैंडल समय (AHT)","एक कॉल या चैट पर लगने वाला औसत समय।","cs,corp"],["s:quality-assurance","quality assurance","noun",3,"Checking calls and chats to make sure they meet the standard, often called QA.","KWOL-i-tee uh-SHOOR-uns","/ˈkwɒləti əˈʃʊərəns/","The QA team scored my chat 95.","Quality assurance listens to five of my calls a week.","Quality assurance will review the new script.","गुणवत्ता जांच (QA)","कॉल और चैट की जांच कि वे तय स्तर के हैं या नहीं।","cs,corp"],["s:canned-response","canned response","noun",3,"A ready-made reply you can paste and edit. Also called a macro.","kand ri-SPONS","/kænd rɪˈspɒns/","She edited the canned response to sound warmer.","I use a canned response for refund questions.","We will add a canned response for the new bug.","तैयार जवाब","पहले से लिखा हुआ जवाब जिसे बदलकर भेजा जा सकता है।","cs,comm"],["s:tier-2-support","tier 2 support","noun",3,"The more expert team that takes harder cases.","teer TOO suh-PORT","/tɪə tuː səˈpɔːt/","I sent the case to tier 2 support.","Tier 2 support handles account bugs.","Tier 2 support will reply within two days.","दूसरे स्तर की सहायता टीम","कठिन मामलों को संभालने वाली विशेषज्ञ टीम।","cs,tech"],["s:reassure","reassure","verb",3,"To say something that makes a worried person feel better.","ree-uh-SHOOR","/ˌriːəˈʃʊə/","She reassured him that the refund was on its way.","I reassure users that their data is safe.","I will reassure the customer before I transfer the call.","भरोसा दिलाना","चिंतित व्यक्ति को ऐसी बात कहना जिससे वह बेहतर महसूस करे।","cs,comm"],["s:first-contact-resolution","first contact resolution","noun",3.5,"Fixing the problem in the first call or chat, often called FCR.","FURST KON-takt rez-uh-LOO-shun","/fɜːst ˈkɒntækt ˌrezəˈluːʃn/","Our first contact resolution went up in May.","First contact resolution matters a lot here.","Good notes will help first contact resolution.","पहली बार में समाधान (FCR)","पहली ही कॉल या चैट में समस्या हल कर देना।","cs"],["s:invoice","invoice","noun",2,"A document that shows what a customer must pay.","IN-voys","/ˈɪnvɔɪs/","I sent her a copy of the invoice.","The invoice is in your account settings.","Your next invoice will show the discount.","बिल, चालान","वह दस्तावेज़ जिसमें लिखा हो कि ग्राहक को कितना भुगतान करना है।","cs,corp"],["s:receipt","receipt","noun",2,"Proof that a payment was made.","ri-SEET","/rɪˈsiːt/","She lost the receipt for her payment.","The receipt is sent by email.","I will resend the receipt now.","रसीद","भुगतान होने का सबूत।","cs"],["s:payment-method","payment method","noun",2,"The way a customer pays, like a card or PayPal.","PAY-munt METH-ud","/ˈpeɪmənt ˈmeθəd/","The payment method was declined.","You can change your payment method in settings.","You will need to add a new payment method.","भुगतान का तरीका","ग्राहक किस तरह से भुगतान करता है, जैसे कार्ड।","cs"],["s:upgrade","upgrade","verb",1.5,"To move to a better or bigger plan.","up-GRAYD","/ʌpˈɡreɪd/","He upgraded to the team plan.","You can upgrade from the settings page.","The upgrade will start right away.","अपग्रेड करना","बेहतर या बड़े प्लान पर जाना।","cs,tech"],["s:cancellation","cancellation","noun",2,"Stopping a plan, order or booking.","kan-suh-LAY-shun","/ˌkænsəˈleɪʃn/","We processed his cancellation yesterday.","Cancellation takes effect at the end of the month.","You will get an email after the cancellation.","रद्द करना, रद्दीकरण","किसी योजना, ऑर्डर या बुकिंग को बंद करना।","cs"],["s:renewal","renewal","noun",2.5,"When a plan starts again for a new period.","ri-NYOO-ul","/rɪˈnjuːəl/","Her renewal failed because the card expired.","The renewal date is on your billing page.","The renewal will happen on the 1st.","नवीनीकरण","जब कोई प्लान नई अवधि के लिए फिर से शुरू होता है।","cs"],["s:chargeback","chargeback","noun",3.5,"When a bank takes back a payment after the customer disputes it.","CHARJ-bak","/ˈtʃɑːdʒbæk/","The user filed a chargeback last month.","A chargeback can block the account.","We will review the chargeback with finance.","बैंक द्वारा भुगतान वापसी","जब ग्राहक की आपत्ति पर बैंक भुगतान वापस ले लेता है।","cs"],["s:password-reset","password reset","noun",1.5,"Making a new password when you forget the old one.","PASS-wurd ree-SET","/ˈpɑːswɜːd ˌriːˈset/","I sent him a password reset email.","The password reset link lasts one hour.","The password reset will log you out everywhere.","पासवर्ड रीसेट","पुराना पासवर्ड भूलने पर नया पासवर्ड बनाना।","tech,cs"],["s:two-factor-authentication","two-factor authentication","noun",3.5,"A second login step, like a code sent to your phone.","too FAK-ter aw-then-ti-KAY-shun","/tuː ˈfæktə ɔːˌθentɪˈkeɪʃn/","She turned on two-factor authentication yesterday.","Two-factor authentication keeps accounts safe.","You will need the code for two-factor authentication.","दो-चरणीय सत्यापन","लॉगिन का दूसरा कदम, जैसे फ़ोन पर आया कोड।","tech,cs"],["s:deactivate","deactivate","verb",3,"To turn off an account or feature.","dee-AK-ti-vayt","/diˈæktɪveɪt/","She deactivated the old account.","You can deactivate your account in settings.","We will deactivate the feature tonight.","निष्क्रिय करना","किसी खाते या फीचर को बंद करना।","tech,cs"],["s:data-privacy","data privacy","noun",3,"Keeping people's personal information safe and private.","DAY-tuh PRIV-uh-see","/ˈdeɪtə ˈprɪvəsi/","The training covered data privacy.","Data privacy rules are strict in Europe.","We will never break data privacy rules.","डेटा गोपनीयता","लोगों की निजी जानकारी को सुरक्षित और गोपनीय रखना।","tech,corp"],["s:sensitive-information","sensitive information","noun",3,"Private details like card numbers or passwords that must be protected.","SEN-si-tiv in-fer-MAY-shun","/ˈsensətɪv ˌɪnfəˈmeɪʃn/","He shared sensitive information by mistake.","Never ask for sensitive information in chat.","We will delete any sensitive information you sent.","संवेदनशील जानकारी","कार्ड नंबर या पासवर्ड जैसी निजी जानकारी जिसे सुरक्षित रखना ज़रूरी है।","cs,tech"],["s:terms-of-service","terms of service","noun",3,"The rules users agree to when they use a product.","turmz uv SUR-vis","/tɜːmz əv ˈsɜːvɪs/","The user broke the terms of service.","The terms of service explain what is allowed.","The new terms of service will start in May.","सेवा की शर्तें","वे नियम जिन्हें उपयोगकर्ता प्रोडक्ट इस्तेमाल करते समय मानते हैं।","cs,tech"],["s:screenshot","screenshot","noun",1,"A picture of what is on your screen.","SKREEN-shot","/ˈskriːnʃɒt/","He shared a screenshot of the bill.","Please send a screenshot of the error.","I will add your screenshot to the ticket.","स्क्रीनशॉट","आपकी स्क्रीन पर जो दिख रहा है उसकी तस्वीर।","tech,cs"],["s:error-message","error message","noun",1.5,"Text on the screen that says something went wrong.","ER-er MES-ij","/ˈerə ˈmesɪdʒ/","The error message appeared after login.","What does the error message say?","The fix will remove this error message.","त्रुटि संदेश","स्क्रीन पर दिखने वाला संदेश कि कुछ गलत हुआ है।","tech"],["s:bug-report","bug report","noun",2,"A message telling the tech team about a problem in the product.","bug ri-PORT","/bʌɡ rɪˈpɔːt/","I filed a bug report this morning.","A good bug report has clear steps.","The team will read your bug report today.","बग रिपोर्ट, गड़बड़ी की रिपोर्ट","प्रोडक्ट की समस्या के बारे में टेक टीम को भेजा गया संदेश।","tech,cs"],["s:feature-request","feature request","noun",2.5,"A customer's idea for something new the product should do.","FEE-cher ri-KWEST","/ˈfiːtʃə rɪˈkwest/","I logged his feature request for the product team.","Many users send the same feature request.","The product team will review feature requests in June.","नई सुविधा का अनुरोध","ग्राहक का सुझाव कि प्रोडक्ट में कोई नई चीज़ जोड़ी जाए।","tech,cs"],["s:clear-the-cache","clear the cache","phrase",2.5,"To delete saved website data so a page loads fresh.","kleer thuh KASH","/klɪə ðə kæʃ/","She cleared the cache and it worked.","Try to clear the cache and reload the page.","You will need to clear the cache after the update.","कैश साफ़ करना","ब्राउज़र में सेव डेटा हटाना ताकि पेज नए सिरे से खुले।","tech"],["s:reproduce","reproduce","verb",3.5,"To make a bug happen again so you can see it.","ree-pruh-DYOOS","/ˌriːprəˈdjuːs/","We reproduced the bug in five minutes.","Can you reproduce the error on your phone?","The team will try to reproduce it tomorrow.","गड़बड़ी को दोबारा करके देखना","बग को फिर से होते हुए देखना ताकि उसे समझा जा सके।","tech"],["s:chatbot","chatbot","noun",1.5,"A computer program that answers people in a chat.","CHAT-bot","/ˈtʃætbɒt/","The chatbot sent him to a human agent.","The chatbot answers simple questions.","The new chatbot will speak Portuguese.","चैटबॉट","एक कंप्यूटर प्रोग्राम जो चैट में लोगों को जवाब देता है।","ai"],["s:output","output","noun",2,"What an AI tool gives back after a prompt.","OWT-put","/ˈaʊtpʊt/","The user didn't like the output.","The output is too long.","A clearer prompt will improve the output.","आउटपुट, परिणाम","प्रॉम्प्ट के बाद AI टूल जो जवाब देता है।","ai"],["s:usage-limit","usage limit","noun",2.5,"The most you can use a plan or feature in a period.","YOO-sij LIM-it","/ˈjuːsɪdʒ ˈlɪmɪt/","She reached her usage limit by noon.","Free users have a daily usage limit.","Your usage limit will reset tomorrow.","उपयोग सीमा","किसी प्लान या फीचर को एक अवधि में इस्तेमाल करने की अधिकतम सीमा।","ai,cs"],["s:api-key","API key","noun",3,"A secret code that lets an app use a service like the OpenAI API.","ay pee EYE kee","/ˌeɪ piː ˈaɪ kiː/","He shared his API key by mistake.","Keep your API key secret.","You will need a new API key.","API की (गुप्त कोड)","एक गुप्त कोड जिससे कोई ऐप किसी सेवा का उपयोग कर सकता है।","ai,tech"],["s:content-policy","content policy","noun",3,"The rules about what an AI tool or platform will and won't create.","KON-tent POL-uh-see","/ˈkɒntent ˈpɒləsi/","The user asked about the content policy.","The request goes against the content policy.","I will share a link to the content policy.","सामग्री नीति","नियम कि AI टूल या प्लेटफ़ॉर्म क्या बनाएगा और क्या नहीं।","ai,cs"],["s:rate-limit","rate limit","noun",3.5,"The most requests a user can send in a set time.","rayt LIM-it","/reɪt ˈlɪmɪt/","The app reached its rate limit yesterday.","You hit the rate limit, so please wait a minute.","The rate limit will reset in one hour.","अनुरोध की सीमा","तय समय में भेजे जा सकने वाले अनुरोधों की अधिकतम संख्या।","ai,tech"],["s:headset","headset","noun",1,"Headphones with a microphone for calls.","HED-set","/ˈhedset/","IT replaced my headset yesterday.","My headset is too quiet.","You will get a headset on day one.","हेडसेट","कॉल के लिए माइक वाला हेडफ़ोन।","cs,hr"],["s:colleague","colleague","noun",1.5,"A person you work with.","KOL-eeg","/ˈkɒliːɡ/","A colleague helped me with the case.","My colleague sits next to me.","I will ask a colleague to cover my shift.","सहकर्मी","वह व्यक्ति जिसके साथ आप काम करते हैं।","corp,hr"],["s:workload","workload","noun",2,"The amount of work you have to do.","WURK-lohd","/ˈwɜːkləʊd/","Her workload doubled during the launch.","My workload is heavy this week.","A new hire will reduce our workload.","काम का बोझ","आपके पास करने के लिए काम की मात्रा।","corp,hr"],["s:prioritize","prioritize","verb",2.5,"To decide what is most important and do it first.","pry-OR-uh-tyz","/praɪˈɒrətaɪz/","She prioritized the billing cases.","I prioritize urgent tickets first.","We will prioritize the outage reports.","प्राथमिकता देना","तय करना कि सबसे ज़रूरी क्या है और उसे पहले करना।","corp,cs"],["s:huddle","huddle","noun",2.5,"A short team meeting, often at the start of a shift.","HUD-ul","/ˈhʌdl/","The team lead shared news in the huddle.","We have a huddle at 9 every morning.","We will talk about the outage in the huddle.","छोटी टीम बैठक","टीम की छोटी मीटिंग, अक्सर शिफ्ट की शुरुआत में।","corp,cs"],["s:go-live","go live","phrasal verb",2.5,"To start doing the real work after training, or to launch something.","goh LYV","/ɡəʊ laɪv/","We went live with the new tool last week.","The new agents go live on Monday.","The feature will go live next month.","लाइव होना, शुरू होना","प्रशिक्षण के बाद असली काम शुरू करना, या कुछ लॉन्च करना।","cs,corp"],["s:shadowing","shadowing","noun",3,"Watching an experienced person work to learn the job.","SHAD-oh-ing","/ˈʃædəʊɪŋ/","I learned a lot while shadowing Maria.","New agents spend a week shadowing.","You will start shadowing on Wednesday.","साथ बैठकर सीखना","अनुभवी व्यक्ति को काम करते देखकर काम सीखना।","cs,hr"],["s:nesting-period","nesting period","noun",3.5,"The first weeks after training when new agents take real calls with extra support.","NES-ting PEER-ee-ud","/ˈnestɪŋ ˈpɪəriəd/","My nesting period went better than I expected.","The nesting period lasts two weeks.","During the nesting period, a coach will help you.","नेस्टिंग अवधि","प्रशिक्षण के बाद के शुरुआती हफ्ते जब नए एजेंट अतिरिक्त मदद के साथ असली कॉल लेते हैं।","cs,hr"],["s:schedule-adherence","schedule adherence","noun",3.5,"How closely you follow your work schedule, like breaks and log in times.","SHED-yool ud-HEER-uns","/ˈʃedjuːl ədˈhɪərəns/","My schedule adherence was 98 percent last month.","Schedule adherence is checked every day.","Long breaks will lower your schedule adherence.","समय सारिणी का पालन","आप अपने काम के समय, जैसे ब्रेक और लॉगिन, का कितना पालन करते हैं।","cs,hr"],["s:stakeholder","stakeholder","noun",3.5,"A person or team affected by a project who cares how it goes.","STAYK-hohl-der","/ˈsteɪkhəʊldə/","We updated all stakeholders after the outage.","The client is a key stakeholder.","I will invite the stakeholders to the review.","हितधारक","वह व्यक्ति या टीम जिस पर किसी प्रोजेक्ट का असर पड़ता है।","corp"],["s:attrition","attrition","noun",4,"The number of people leaving a company over time.","uh-TRISH-un","/əˈtrɪʃn/","Attrition fell after the pay rise.","Attrition is high in call centers.","Better training will reduce attrition.","कर्मचारियों का छोड़कर जाना","समय के साथ कंपनी छोड़ने वाले लोगों की संख्या।","corp,hr"],["s:meeting","meeting","noun",1,"A planned time when people come together to talk about work.","MEE-ting","/ˈmiːtɪŋ/","The meeting ran late yesterday.","We have a team meeting every Monday.","I will join the meeting at three.","बैठक, मीटिंग","काम पर बात करने के लिए लोगों का तय समय पर मिलना।","hr,corp"],["s:agenda","agenda","noun",2,"The list of topics for a meeting.","uh-JEN-duh","/əˈdʒendə/","She shared the agenda before the call.","The agenda has four points.","I will send the agenda tonight.","कार्यसूची, एजेंडा","मीटिंग में बात होने वाले विषयों की सूची।","hr,corp"],["s:zoom-call","Zoom call","noun",1,"A video meeting on the Zoom app.","zoom KAWL","/zuːm kɔːl/","We had a quick Zoom call with the client.","Our weekly Zoom call starts at ten.","I will set up a Zoom call for Friday.","ज़ूम कॉल (वीडियो मीटिंग)","ज़ूम ऐप पर होने वाली वीडियो मीटिंग।","hr,corp"],["s:google-meet","Google Meet","noun",1,"Google's app for video meetings.","GOO-gul meet","/ˈɡuːɡl miːt/","I shared my screen on Google Meet.","The training is on Google Meet.","I will send you the Google Meet link.","गूगल मीट (वीडियो मीटिंग ऐप)","वीडियो मीटिंग के लिए गूगल का ऐप।","hr,corp"],["s:video-call","video call","noun",1,"A call where people can see and hear each other.","VID-ee-oh kawl","/ˈvɪdiəʊ kɔːl/","We solved it on a video call.","I prefer a video call to a long email.","We will do a video call tomorrow.","वीडियो कॉल","ऐसी कॉल जिसमें लोग एक दूसरे को देख और सुन सकते हैं।","hr,corp"],["s:screen-share","screen share","verb",1.5,"To show your computer screen to others on a call.","SKREEN shair","/skriːn ʃeə/","He screen shared his dashboard.","Can you screen share the report?","I will screen share the steps.","स्क्रीन शेयर करना","कॉल पर अपनी कंप्यूटर स्क्रीन दूसरों को दिखाना।","hr,corp"],["s:mute","mute","verb",1,"To turn off your microphone.","myoot","/mjuːt/","I forgot I was muted.","Please mute yourself when you aren't speaking.","I will mute my mic during the training.","म्यूट करना, आवाज़ बंद करना","कॉल पर अपना माइक बंद करना।","hr,corp"],["s:take-notes","take notes","phrase",1,"To write down the main points while someone speaks.","tayk NOHTS","/teɪk nəʊts/","She took notes for the whole team.","I take notes in every meeting.","Who will take notes today?","नोट्स लिखना","बातचीत के मुख्य बिंदु लिख लेना।","hr,corp"],["s:minutes","minutes","noun",2.5,"The written record of what was said in a meeting.","MIN-its","/ˈmɪnɪts/","He sent the minutes after the meeting.","The minutes are in the shared folder.","I will share the minutes by noon.","बैठक का लिखित ब्योरा","मीटिंग में हुई बातों का लिखा हुआ रिकॉर्ड।","hr,corp"],["s:one-on-one","one-on-one","noun",2,"A private meeting between you and your manager.","wun-on-WUN","/ˌwʌn ɒn ˈwʌn/","We talked about my goals in our one-on-one.","I have a one-on-one with my manager every Friday.","I will raise this in my next one-on-one.","आमने-सामने की निजी बैठक","आपकी और आपके मैनेजर की अकेले में होने वाली मीटिंग।","hr,corp"],["s:reschedule","reschedule","verb",2,"To move a meeting or task to a new time.","ree-SHED-yool","/ˌriːˈʃedjuːl/","She rescheduled the training to Tuesday.","Can we reschedule our call?","I will reschedule the meeting for next week.","समय बदलना","मीटिंग या काम को नए समय पर रखना।","hr,corp"],["s:out-of-office","out of office","phrase",2,"Away from work, so you can't reply for a while.","owt uv OF-is","/aʊt əv ˈɒfɪs/","She set an out of office reply.","I'm out of office until Monday.","I will be out of office next week.","कार्यालय से बाहर","काम से दूर, इसलिए कुछ समय तक जवाब नहीं दे सकते।","hr,corp"],["s:work-from-home","work from home","phrase",1,"To do your job from your house instead of the office.","wurk frum HOHM","/wɜːk frəm həʊm/","We worked from home during the storm.","I work from home on Fridays.","You will be able to work from home after training.","घर से काम करना","ऑफिस की जगह घर से नौकरी का काम करना।","hr,corp"],["s:manager","manager","noun",1,"The person who leads a team and checks its work.","MAN-ij-er","/ˈmænɪdʒə/","The manager praised our team.","My manager approves my leave.","Your manager will call you today.","प्रबंधक, मैनेजर","वह व्यक्ति जो टीम का नेतृत्व करता है और काम देखता है।","hr"],["s:team-lead","team lead","noun",1.5,"The person who guides a small team day to day.","teem LEED","/tiːm liːd/","The team lead ran the morning huddle.","My team lead checks my tickets.","The team lead will update the roster.","टीम प्रमुख","वह व्यक्ति जो रोज़ एक छोटी टीम का मार्गदर्शन करता है।","hr"],["s:employee","employee","noun",1,"A person who works for a company and gets paid.","im-PLOY-ee","/ɪmˈplɔɪiː/","She was employee of the month.","Every employee gets a laptop.","New employees will start on Monday.","कर्मचारी","वह व्यक्ति जो किसी कंपनी में काम करता है और वेतन पाता है।","hr"],["s:employer","employer","noun",2,"The company or person that pays you to work.","im-PLOY-er","/ɪmˈplɔɪə/","My last employer gave me a good reference.","My employer pays on the last day of the month.","Your employer will send the contract.","नियोक्ता","वह कंपनी या व्यक्ति जो आपको काम के लिए पैसे देता है।","hr"],["s:hr","HR","noun",1.5,"Human Resources, the team that handles hiring, contracts, pay and staff questions.","aych AR","/ˌeɪtʃ ˈɑː/","I emailed HR about my payslip.","HR handles all leave requests.","HR will explain your benefits.","मानव संसाधन विभाग, एचआर","वह टीम जो भर्ती, अनुबंध, वेतन और कर्मचारियों के सवाल संभालती है।","hr"],["s:contract","contract","noun",1.5,"A written agreement about your job, pay and rules.","KON-trakt","/ˈkɒntrækt/","I signed the contract last week.","My contract is for one year.","HR will email you the contract.","अनुबंध, कॉन्ट्रैक्ट","नौकरी, वेतन और नियमों के बारे में लिखित समझौता।","hr"],["s:permanent-contract","permanent contract","noun",2.5,"A job contract with no end date.","PUR-muh-nunt KON-trakt","/ˈpɜːmənənt ˈkɒntrækt/","He got a permanent contract after one year.","She has a permanent contract now.","You will get a permanent contract after probation.","स्थायी अनुबंध","ऐसा नौकरी का अनुबंध जिसकी कोई अंतिम तारीख न हो।","hr"],["s:fixed-term-contract","fixed-term contract","noun",3,"A job contract that ends on a set date.","fikst-turm KON-trakt","/ˌfɪkst tɜːm ˈkɒntrækt/","They offered me a fixed-term contract.","My fixed-term contract ends in June.","The fixed-term contract will become permanent.","निश्चित अवधि का अनुबंध","ऐसा अनुबंध जो तय तारीख पर खत्म होता है।","hr"],["s:salary","salary","noun",1,"The fixed money you get for your job, usually every month.","SAL-uh-ree","/ˈsæləri/","Her salary went up last year.","The salary is paid monthly.","We will discuss salary in the next round.","वेतन, तनख्वाह","नौकरी के लिए हर महीने मिलने वाला तय पैसा।","hr"],["s:payslip","payslip","noun",2,"A document that shows your pay and what was taken off it. Also called a salary slip.","PAY-slip","/ˈpeɪslɪp/","I downloaded my payslip yesterday.","My payslip shows tax and overtime.","You will get your payslip by email.","वेतन पर्ची, सैलरी स्लिप","वह दस्तावेज़ जिसमें आपका वेतन और कटौतियाँ दिखती हैं।","hr"],["s:benefits","benefits","noun",2,"Extra things your job gives you besides salary, like health insurance.","BEN-i-fits","/ˈbenɪfɪts/","HR explained the benefits on day one.","The benefits include health insurance.","Your benefits will start after probation.","अतिरिक्त सुविधाएँ, लाभ","वेतन के अलावा नौकरी से मिलने वाली सुविधाएँ, जैसे स्वास्थ्य बीमा।","hr"],["s:probation-period","probation period","noun",2.5,"The first months of a job when the company checks if you fit the role.","pruh-BAY-shun PEER-ee-ud","/prəˈbeɪʃn ˈpɪəriəd/","He passed his probation period.","My probation period is six months.","Your probation period will end in March.","परिवीक्षा अवधि","नौकरी के शुरुआती महीने जिनमें कंपनी देखती है कि आप काम के लिए सही हैं या नहीं।","hr"],["s:trainer","trainer","noun",1,"The person who teaches new staff how to do the job.","TRAY-ner","/ˈtreɪnə/","The trainer gave us a quiz.","Our trainer explains each tool.","Your trainer will meet you at nine.","प्रशिक्षक, ट्रेनर","वह व्यक्ति जो नए कर्मचारियों को काम सिखाता है।","hr"],["s:trainee","trainee","noun",2,"A new person who is learning the job.","tray-NEE","/ˌtreɪˈniː/","I was a trainee last year.","Each trainee sits with a senior agent.","The trainees will take calls next week.","प्रशिक्षु","वह नया व्यक्ति जो काम सीख रहा है।","hr"],["s:training-period","training period","noun",2,"The time when new staff learn the job before working alone.","TRAY-ning PEER-ee-ud","/ˈtreɪnɪŋ ˈpɪəriəd/","I learned a lot in my training period.","The training period lasts four weeks.","You will be paid during the training period.","प्रशिक्षण अवधि","वह समय जब नए कर्मचारी अकेले काम करने से पहले काम सीखते हैं।","hr"],["s:shift","shift","noun",1,"A set block of working hours, like morning or night.","shift","/ʃɪft/","Her shift ended late.","My shift starts at 8 a.m.","I will be on the night shift next week.","पारी, शिफ्ट","काम के तय घंटे, जैसे सुबह या रात की पारी।","hr"],["s:weekend-shift","weekend shift","noun",2,"Working hours on Saturday or Sunday.","week-END shift","/ˌwiːkˈend ʃɪft/","She covered my weekend shift.","I work a weekend shift once a month.","I will swap my weekend shift with Ana.","सप्ताहांत की पारी","शनिवार या रविवार को काम के घंटे।","hr"],["s:overtime","overtime","noun",1.5,"Extra hours you work beyond your normal hours.","OH-ver-tym","/ˈəʊvətaɪm/","I did three hours of overtime yesterday.","Overtime is paid at a higher rate.","We will need overtime during the launch.","ओवरटाइम, अतिरिक्त समय","सामान्य घंटों से ज़्यादा किया गया काम।","hr"],["s:roster","roster","noun",2.5,"A list showing who works on which days and shifts.","ROS-ter","/ˈrɒstə/","My manager changed the roster.","The new roster is out.","I will check the roster for next month.","ड्यूटी सूची, रोस्टर","यह सूची कि कौन किस दिन और किस पारी में काम करेगा।","hr"],["s:timesheet","timesheet","noun",2.5,"A record of the hours you worked.","TYM-sheet","/ˈtaɪmʃiːt/","He forgot to submit his timesheet.","I fill in my timesheet every Friday.","Your overtime will show on the timesheet.","समय-पत्रक","आपके काम किए गए घंटों का रिकॉर्ड।","hr"],["s:clock-in","clock in","phrasal verb",2,"To record the time you start work.","klok IN","/klɒk ɪn/","I clocked in at 7:55.","We clock in with our ID card.","You will clock in on the new app.","काम शुरू होने का समय दर्ज करना","काम शुरू करने का समय सिस्टम में दर्ज करना।","hr"],["s:annual-leave","annual leave","noun",2,"Paid days off you get each year for holidays.","AN-yoo-ul leev","/ˈænjuəl liːv/","She took annual leave in August.","I have ten days of annual leave left.","I will book annual leave for Christmas.","वार्षिक छुट्टी","हर साल मिलने वाली वेतन सहित छुट्टियाँ।","hr"],["s:sick-leave","sick leave","noun",1.5,"Time off work because you are ill. One day off is a sick day.","sik LEEV","/sɪk liːv/","He took two sick days last week.","I'm on sick leave today.","You will need a doctor's note for long sick leave.","बीमारी की छुट्टी","बीमार होने पर काम से ली गई छुट्टी।","hr"],["s:comp-off","comp off","noun",2.5,"A day off you get for working on a holiday or weekend.","KOMP off","/ˈkɒmp ɒf/","She used her comp off on Friday.","I have a comp off for last Sunday.","You will get a comp off for the weekend shift.","प्रतिपूरक छुट्टी, कॉम्प ऑफ","छुट्टी या वीकेंड पर काम करने के बदले मिलने वाली छुट्टी।","hr"],["s:paid-time-off","paid time off","noun",2.5,"Days off when you still get paid. Often called PTO.","payd tym OFF","/peɪd taɪm ɒf/","I used my paid time off for a family trip.","PTO includes holidays and sick days.","New staff will get 22 days of paid time off.","वेतन सहित छुट्टी","ऐसी छुट्टी जिसमें आपको फिर भी वेतन मिलता है।","hr"],["s:unpaid-leave","unpaid leave","noun",2.5,"Time off work without pay.","un-PAYD leev","/ʌnˈpeɪd liːv/","She took unpaid leave to move house.","He is asking for a week of unpaid leave.","Unpaid leave will not affect your contract.","बिना वेतन की छुट्टी","ऐसी छुट्टी जिसमें वेतन नहीं मिलता।","hr"],["s:public-holiday","public holiday","noun",2,"A day off for the whole country.","PUB-lik HOL-uh-day","/ˌpʌblɪk ˈhɒlədeɪ/","We worked on the public holiday.","Monday is a public holiday in Portugal.","The office will close on the public holiday.","सार्वजनिक अवकाश","वह दिन जब पूरे देश में छुट्टी होती है।","hr"],["s:performance-review","performance review","noun",2.5,"A meeting where your manager talks about how well you did your job. Also called an appraisal.","per-FOR-muns ri-VYOO","/pəˈfɔːməns rɪˈvjuː/","My performance review went well.","Performance reviews happen twice a year.","We will set goals in your performance review.","कार्य मूल्यांकन","वह मीटिंग जिसमें मैनेजर आपके काम का मूल्यांकन करता है।","hr"],["s:promotion","promotion","noun",2,"A move to a higher job with more responsibility.","pruh-MOH-shun","/prəˈməʊʃn/","She got a promotion to team lead.","A promotion usually comes with a raise.","I will apply for the promotion.","पदोन्नति, प्रमोशन","ज़्यादा ज़िम्मेदारी वाले ऊँचे पद पर जाना।","hr"],["s:resign","resign","verb",2.5,"To tell your employer you are leaving your job.","ri-ZYN","/rɪˈzaɪn/","He resigned to start his own business.","Many people resign in January.","I will resign after I get the new offer.","इस्तीफ़ा देना","अपने नियोक्ता को बताना कि आप नौकरी छोड़ रहे हैं।","hr"],["s:notice-period","notice period","noun",2.5,"The time you must keep working after you say you are leaving.","NOH-tis PEER-ee-ud","/ˈnəʊtɪs ˈpɪəriəd/","She worked her full notice period.","My notice period is one month.","Your notice period will start today.","नोटिस अवधि","नौकरी छोड़ने की सूचना देने के बाद काम करने का ज़रूरी समय।","hr"],["s:termination","termination","noun",3,"The end of someone's job, decided by the company.","tur-mi-NAY-shun","/ˌtɜːmɪˈneɪʃn/","His termination was a surprise.","Termination needs a written reason.","Breaking the rules will lead to termination.","बर्खास्तगी, नौकरी समाप्ति","कंपनी द्वारा किसी की नौकरी खत्म करना।","hr"]];
+// STARTER:END

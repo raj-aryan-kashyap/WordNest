@@ -32,6 +32,7 @@ export const TOPIC_LABEL = {
   cs: 'Customer care', corp: 'Office', tech: 'Tech', ai: 'AI',
   comm: 'Speaking and writing', career: 'Interviews', exam: 'Exams', hr: 'Workplace and HR',
   ctx: 'For you', general: 'Everyday', mine: 'Added by you',
+  chatgpt: 'ChatGPT support', email: 'Email', mobile: 'Phone support',
 };
 
 /** Label for a word's topic pill. User-written goal tags show as "For you". */

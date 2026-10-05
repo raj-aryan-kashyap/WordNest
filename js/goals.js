@@ -14,6 +14,9 @@ import { icon } from './ui.js';
 export const PRESETS = [
   { id: 'cs', label: 'Customer care', tags: ['cs'], kw: ['customer service', 'complaint', 'assistance', 'apology'], about: 'customer care and support calls' },
   { id: 'hr', label: 'Workplace and HR', tags: ['hr'], kw: ['employment', 'salary', 'contract', 'leave'], about: 'working at a company: meetings, contracts, pay, leave, shifts and HR' },
+  { id: 'chatgpt', label: 'ChatGPT support', tags: ['chatgpt'], kw: ['chatbot', 'subscription', 'account', 'software'], about: 'supporting ChatGPT users: accounts, sign-in, plans, billing, models and features' },
+  { id: 'email', label: 'Email', tags: ['email'], kw: ['email', 'correspondence', 'mailbox'], about: 'reading, writing and fixing email: replies, attachments, spam and safety' },
+  { id: 'mobile', label: 'Phone support', tags: ['mobile'], kw: ['smartphone', 'battery', 'wireless'], about: 'helping people with smartphones: settings, battery, updates, apps and resets' },
   { id: 'corp', label: 'Office and meetings', tags: ['corp'], kw: ['business', 'workplace', 'management', 'meeting'], about: 'office work, meetings and teams' },
   { id: 'tech', label: 'Tech support', tags: ['tech'], kw: ['software', 'technology', 'data', 'internet'], about: 'helping people with apps, accounts and software' },
   { id: 'ai', label: 'AI products', tags: ['ai'], kw: ['artificial intelligence', 'algorithm', 'automation'], about: 'AI tools like chat assistants' },
@@ -34,6 +37,9 @@ const GROUPS = [
   { re: /\b(ai|openai|chatgpt|gpt|model|machine)\b/i, tag: 'ai' },
   { re: /\b(email|emails|writing|write|chat|communication|speaking|presentation)\b/i, tag: 'comm' },
   { re: /\b(interview|interviews|career|cv|resume|job hunt)\b/i, tag: 'career' },
+  { re: /\b(chatgpt|openai|gpt)\b/i, tag: 'chatgpt' },
+  { re: /\b(email|emails|inbox|gmail|outlook|mail)\b/i, tag: 'email' },
+  { re: /\b(phone|phones|smartphone|samsung|galaxy|android|iphone|mobile)\b/i, tag: 'mobile' },
   { re: /\b(hr|salary|contract|leave|shift|shifts|payslip|probation|overtime|corporate)\b/i, tag: 'hr' },
   { re: /\b(ielts|toefl|exam|exams|test|university|academic)\b/i, tag: 'exam' },
 ];

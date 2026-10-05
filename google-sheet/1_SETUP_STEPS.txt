@@ -56,7 +56,7 @@ FILES IN THIS FOLDER
 
 10. Reload the sheet. A "WordNest" menu appears at the top.
     Click WordNest > Add starter words to Library.
-    The Library tab fills with all the built-in words.
+    The Library tab fills with all 276 built-in words.
 
 11. On your phone: close and reopen the app. Go to
     Me > Sync across devices. Pick a name and a 4 to 8 number PIN.

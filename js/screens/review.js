@@ -10,6 +10,7 @@ import { renderQuestion, renderFeedback, stateBlock } from '../components.js';
 import { pickReview, grade } from '../srs.js';
 import { buildQuestion } from '../quiz.js';
 import { CONFIG } from '../config.js';
+import { uiState } from '../uistate.js';
 
 export function mount(root, ctx, params) {
   const { store, engine, go } = ctx;
@@ -20,15 +21,34 @@ export function mount(root, ctx, params) {
   // Daily: if already done today, treat as extra practice.
   const dailyDone = !!(store.state.reviews[today] && store.state.reviews[today].done);
   const isDaily = mode === 'daily' && !dailyDone;
-  const recs = pickReview(store.state.words, CONFIG.DAILY_REVIEW_SIZE, { exclude: isDaily ? new Set() : reviewedToday });
-  const items = recs.map((r) => engine.card(r.id)).filter(Boolean);
+  // A round in progress (from before the phone reloaded the page) comes back as it was.
+  const saved = uiState.get('review');
+  const resume = saved && saved.day === today && saved.mode === mode
+    && saved.items.every((id) => engine.card(id)) ? saved : null;
 
-  let queue = items.map((c) => ({ card: c, retry: false }));
-  let i = 0;
-  let answered = null;
-  let q = null;
-  const results = new Map(); // id -> true/false (first try only)
-  let finished = false;
+  const items = resume
+    ? resume.items.map((id) => engine.card(id))
+    : pickReview(store.state.words, CONFIG.DAILY_REVIEW_SIZE, { exclude: isDaily ? new Set() : reviewedToday })
+      .map((r) => engine.card(r.id)).filter(Boolean);
+
+  let queue = resume
+    ? resume.queue.map((x) => ({ card: engine.card(x.id), retry: x.retry, lastType: x.lastType }))
+    : items.map((c) => ({ card: c, retry: false }));
+  let i = resume ? resume.i : 0;
+  let answered = resume ? resume.answered : null;
+  let q = resume ? resume.q : null;
+  const results = new Map(resume ? resume.results : []); // id -> true/false (first try only)
+  let finished = resume ? !!resume.finished : false;
+  const roundIsDaily = resume ? resume.isDaily : isDaily;
+
+  function remember() {
+    uiState.set('review', {
+      day: today, mode, isDaily: roundIsDaily, finished,
+      items: items.map((c) => c.id),
+      queue: queue.map((x) => ({ id: x.card.id, retry: x.retry, lastType: x.lastType })),
+      i, answered, q, results: [...results],
+    });
+  }
 
   function progress() {
     const total = queue.length;
@@ -48,6 +68,7 @@ export function mount(root, ctx, params) {
     root.innerHTML = `${progress()}
       ${renderQuestion(q, { answered, note: item.retry ? 'One more try' : '' })}
       ${answered !== null ? renderFeedback(ok, item.card, { cta: i + 1 < queue.length ? 'Continue' : 'See results' }) : ''}`;
+    remember();
     if (answered !== null) {
       root.querySelector('.feedback')?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'nearest' });
       root.querySelector('[data-act="continue"]')?.focus({ preventScroll: true });
@@ -71,7 +92,7 @@ export function mount(root, ctx, params) {
     root.innerHTML = `<div class="summary">
       <div class="summary-head">
         <p class="summary-score">${ok}/${total}</p>
-        <h1>${isDaily ? 'Revision done' : 'Practice done'}</h1>
+        <h1>${roundIsDaily ? 'Revision done' : 'Practice done'}</h1>
         <p>${esc(msg)}</p>
         ${streak ? `<p class="muted small" style="margin-top:8px">${plural(streak, 'day', 'days')} in a row</p>` : ''}
       </div>
@@ -86,11 +107,12 @@ export function mount(root, ctx, params) {
   function finish() {
     finished = true;
     const ok = [...results.values()].filter(Boolean).length;
-    if (isDaily) {
+    if (roundIsDaily) {
       store.update((s) => { s.reviews[today] = { done: true, ok, total: results.size }; });
     }
     store.markActive();
     haptic(15);
+    remember();
     drawSummary();
   }
 
@@ -127,17 +149,17 @@ export function mount(root, ctx, params) {
     if (act === 'answer') answer(Number(el.dataset.i));
     else if (act === 'continue') next();
     else if (act === 'hear') speak(queue[i]?.card.w, queue[i]?.card.audio, el);
-    else if (act === 'learn') go('learn', { replace: true });
-    else if (act === 'home') go('home', { replace: true });
+    else if (act === 'learn') { uiState.clear('review'); go('learn', { replace: true }); }
+    else if (act === 'home') { uiState.clear('review'); go('home', { replace: true }); }
     else if (act === 'close') {
-      if (finished || results.size === 0) return go('home', { replace: true });
+      if (finished || results.size === 0) { uiState.clear('review'); return go('home', { replace: true }); }
       const stop = await confirmSheet({
         title: 'Stop revision?',
         text: 'Your answers so far are saved.',
         okLabel: 'Stop',
         cancelLabel: 'Keep going',
       });
-      if (stop) go('home', { replace: true });
+      if (stop) { uiState.clear('review'); go('home', { replace: true }); }
     }
   };
 
@@ -159,6 +181,8 @@ export function mount(root, ctx, params) {
           : 'Learn a few new words first. Your first revision starts the next day.',
         actions: '<button class="btn btn-primary" data-act="learn">Learn new words</button>',
       })}`;
+  } else if (finished) {
+    drawSummary();
   } else {
     drawQuestion();
   }

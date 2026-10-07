@@ -6,9 +6,11 @@ import { esc, diffDays, dayKey, addDays } from '../utils.js';
 import { icon, sheet, speak, openSearch, toast } from '../ui.js';
 import { renderEntry, stateBlock } from '../components.js';
 import { openAddWord } from '../addword.js';
+import { uiState } from '../uistate.js';
 
-let tab = 'learning';   // remembered while the app is open
-let query = '';
+let tab = uiState.get('words')?.tab || 'learning';   // kept for this tab, even across reloads
+let query = uiState.get('words')?.query || '';
+const keep = () => uiState.set('words', { tab, query });
 
 function dueText(rec, today) {
   if (rec.s === 'known' || !rec.due) return { text: '', due: false };
@@ -76,6 +78,7 @@ export function mount(root, ctx) {
     const input = root.querySelector('#q');
     input?.addEventListener('input', () => {
       query = input.value;
+      keep();
       root.querySelector('#list').innerHTML = rowsHtml(); // keep focus in the search box
     });
   }
@@ -123,6 +126,7 @@ export function mount(root, ctx) {
     if (!el) return;
     if (el.dataset.act === 'tab') {
       tab = el.dataset.tab;
+      keep();
       draw();
     } else if (el.dataset.act === 'open') openWord(el.dataset.id);
     else if (el.dataset.act === 'learn') go('learn');

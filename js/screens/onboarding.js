@@ -7,6 +7,7 @@ import { esc, haptic } from '../utils.js';
 import { icon, flag, toast, BRAND_ICON } from '../ui.js';
 import { syncConfigured, signIn, validName } from '../sync.js';
 import { bindGoalEditor, goalCount } from '../goals.js';
+import { uiState } from '../uistate.js';
 
 const LEVELS = [
   { id: 'beginner', title: 'Just starting', sub: 'Simple, common words first' },
@@ -28,6 +29,7 @@ export function mount(root, ctx, params) {
   const { store, engine, go } = ctx;
   const p = store.state.profile;
   const editLang = params.get('edit') === 'lang';
+  if (!draft) draft = uiState.get('onboarding');
   if (!draft) draft = { lang: p.lang, goals: p.goals.length || p.custom.length ? [...p.goals] : ['hr'], custom: [...p.custom], level: p.level || 'middle', name: p.name };
   let step = params.get('step') || 'lang';
   if (step !== 'lang' && step !== 'signin' && !draft.lang) step = 'lang'; // never skip the first step
@@ -81,7 +83,7 @@ export function mount(root, ctx, params) {
         toast(created ? 'New account created. Let\'s set it up.' : 'Signed in. Let\'s finish setting up.');
         go('welcome', { replace: true });
       } else {
-        draft = null;
+        draft = null; uiState.clear('onboarding');
         toast('Signed in. Your words are here.');
         go('home', { replace: true });
       }
@@ -141,7 +143,10 @@ export function mount(root, ctx, params) {
     </div>`;
   }
 
+  const keepDraft = () => { if (draft) uiState.set('onboarding', draft); };
+
   function draw() {
+    keepDraft();
     root.innerHTML = step === 'context' ? viewContext() : step === 'name' ? viewName() : step === 'signin' ? viewSignIn() : viewLang();
     bindInputs();
   }
@@ -150,13 +155,14 @@ export function mount(root, ctx, params) {
     const editor = root.querySelector('#goal-editor');
     if (editor) {
       bindGoalEditor(editor, draft, () => {
+        keepDraft();
         const next = root.querySelector('[data-act="ctx-next"]');
         if (next) next.disabled = !goalCount(draft);
       });
     }
     const name = root.querySelector('#name');
     if (name) {
-      name.addEventListener('input', () => { draft.name = name.value; });
+      name.addEventListener('input', () => { draft.name = name.value; keepDraft(); });
       name.addEventListener('keydown', (e) => { if (e.key === 'Enter') finish(); });
     }
   }
@@ -174,6 +180,7 @@ export function mount(root, ctx, params) {
       s.model.skill = null; // start from the chosen level
     });
     draft = null;
+    uiState.clear('onboarding');
     haptic(12);
     go('home', { replace: true });
   }
@@ -198,12 +205,12 @@ export function mount(root, ctx, params) {
     } else if (act === 'lang-next') {
       if (editLang) {
         store.update((s) => { s.profile.lang = draft.lang; s.profile.u = Date.now(); });
-        draft = null;
+        draft = null; uiState.clear('onboarding');
         toast('Saved');
         go('me', { replace: true });
       } else go('welcome?step=context');
     } else if (act === 'cancel-edit') {
-      draft = null;
+      draft = null; uiState.clear('onboarding');
       go('me', { replace: true });
     } else if (act === 'level') {
       haptic();

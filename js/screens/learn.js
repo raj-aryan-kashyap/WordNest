@@ -10,6 +10,7 @@ import { icon, toast, speak, openSearch } from '../ui.js';
 import { renderEntry, renderEntrySkeleton, renderQuestion, renderFeedback, streakPill, stateBlock, statusChip } from '../components.js';
 import { status } from '../status.js';
 import { openAddWord } from '../addword.js';
+import { uiState } from '../uistate.js';
 import { reviewStatus, pickRecheck, grade } from '../srs.js';
 import { buildQuestion } from '../quiz.js';
 import { CONFIG } from '../config.js';
@@ -24,6 +25,32 @@ export function mount(root, ctx) {
   let sinceCheck = 0;
   const checked = new Set();     // words already re-checked in this visit
   let animateIn = true;
+
+  /** Save what is on screen so a page reload can bring it back. */
+  function remember() {
+    if (phase === 'card' && card) uiState.set('learn', { phase, id: card.id, sinceCheck });
+    else if (phase === 'check' && check) uiState.set('learn', { phase, id: check.card.id, q: check.q, answered: check.answered, sinceCheck });
+  }
+
+  /** Bring back the word or quick check from before a reload. Returns true if restored. */
+  function restore() {
+    const saved = uiState.get('learn');
+    if (!saved) return false;
+    sinceCheck = saved.sinceCheck || 0;
+    const c = engine.card(saved.id);
+    if (!c) return false;
+    if (saved.phase === 'card' && !store.state.words[c.id]) {
+      card = c; phase = 'card'; animateIn = false;
+      return true;
+    }
+    if (saved.phase === 'check' && saved.q && store.state.words[c.id]) {
+      check = { card: c, q: saved.q, answered: saved.answered ?? null };
+      checked.add(c.id);
+      phase = 'check';
+      return true;
+    }
+    return false;
+  }
 
   /* ---------- Views ---------- */
   function header() {
@@ -79,6 +106,7 @@ export function mount(root, ctx) {
   function draw() {
     if (!alive) return;
     root.innerHTML = `${header()}<div class="learn-stage">${body()}</div>`;
+    remember();
   }
 
   /* ---------- Flow ---------- */
@@ -179,6 +207,11 @@ export function mount(root, ctx) {
     }
   };
 
-  loadNext();
+  if (restore()) {
+    draw();
+    if (phase === 'card') engine.prefetch();
+  } else {
+    loadNext();
+  }
   return () => { alive = false; };
 }

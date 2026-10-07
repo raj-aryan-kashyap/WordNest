@@ -74,7 +74,7 @@ export function markLibrarySent(ids) {
 
 /** Context names this user wants, so the sheet sends matching words first. */
 export function wantedContexts(profile) {
-  const out = new Set(['Workplace and HR']);
+  const out = new Set(['TP training', 'Workplace and HR']);
   for (const g of activeGoals(profile)) {
     out.add(g.label);
     for (const t of g.tags) if (TOPIC_LABEL[t]) out.add(TOPIC_LABEL[t]);

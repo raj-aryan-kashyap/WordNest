@@ -32,14 +32,17 @@ export const TOPIC_LABEL = {
   cs: 'Customer care', corp: 'Office', tech: 'Tech', ai: 'AI',
   comm: 'Speaking and writing', career: 'Interviews', exam: 'Exams', hr: 'Workplace and HR',
   ctx: 'For you', general: 'Everyday', mine: 'Added by you',
-  chatgpt: 'ChatGPT support', email: 'Email', mobile: 'Phone support',
+  chatgpt: 'ChatGPT support', email: 'Email', mobile: 'Phone support', training: 'TP training',
 };
 
 /** Label for a word's topic pill. User-written goal tags show as "For you". */
 export const topicLabel = (t) => TOPIC_LABEL[t] || (t.startsWith('c:') ? 'For you' : null);
 
 /** Topics that are always part of the mix, whatever goals the user picks. */
-export const CORE_TAGS = new Set(['hr']);
+export const CORE_TAGS = new Set(['hr', 'training']);
+
+/** Topics shown before everything else (highest weight), e.g. current training material. */
+export const PRIORITY_TAGS = { training: 2 };
 
 const actionCount = (history) => history.filter((h) => h.k === 'n' || h.k === 'k').length;
 
@@ -81,7 +84,7 @@ export class Engine {
     this.inflight = new Map();
     this.refillPromise = null;
     this.lastAction = null;
-    this.sessionSeed = String(Math.random());
+    this.sessionSeed = dayKey(); // same order all day, even after the phone reloads the page
     this.lastRefillAdded = null;
     this.serverSuggest = null;   // set by app.js when sync is on: (request) => Promise<response>
     this.nextRefillAt = 0;       // client-side backoff so we never hammer free services
@@ -158,7 +161,8 @@ export class Engine {
       const mix = tags.reduce((m, t) => Math.max(m, balance.get(t) || 0), 0);
       const ready = this.isReady(c) ? 0.25 : 0;
       const jitter = hash01(c.id + this.sessionSeed) * 0.35; // stable variety within a session
-      return { c, score: fit + topic * 0.6 + ctx + mix + ready + jitter };
+      const boost = tags.reduce((m, t) => Math.max(m, PRIORITY_TAGS[t] || 0), 0); // training words first
+      return { c, score: fit + topic * 0.6 + ctx + mix + ready + jitter + boost };
     });
     scored.sort((a, b) => b.score - a.score);
     return scored.map((s) => s.c);
@@ -364,6 +368,7 @@ export class Engine {
 GOALS (mix the words across these goals; tag each word with the ids it serves):
 ${goalLines}
 - id "hr": working at a company: meetings, contracts, pay, leave and HR (always useful)
+- id "training": their current job training: emotional intelligence, customer empathy, types and history of AI, AI models, using AI responsibly (top priority)
 
 LEARNER
 - Level about ${this.skill().toFixed(1)} on a 1 to 5 scale (1 very basic, 5 advanced professional).
@@ -384,8 +389,8 @@ RULES
 
 Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","note":"","present":"","past":"","future":"","hindi":"","hindiMeaning":"","level":3,"goals":[""]}]} with exactly ${count} words.`;
 
-    const goalTags = { hr: ['hr'] };
-    const contextNames = { hr: TOPIC_LABEL.hr };
+    const goalTags = { hr: ['hr'], training: ['training'] };
+    const contextNames = { hr: TOPIC_LABEL.hr, training: TOPIC_LABEL.training };
     for (const g of goals) { goalTags[g.id] = g.tags; contextNames[g.id] = g.label; }
     return { prompt, avoid, goalTags, contextNames, count };
   }

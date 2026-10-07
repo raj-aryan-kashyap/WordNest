@@ -12,6 +12,7 @@ import { markLibrarySent } from './library.js';
 import { status } from './status.js';
 import { statusChip } from './components.js';
 import { openStatusSheet } from './statusview.js';
+import { uiState } from './uistate.js';
 import { reviewStatus } from './srs.js';
 import { CONFIG } from './config.js';
 import { debounce, dayKey } from './utils.js';
@@ -34,6 +35,11 @@ const appEl = document.getElementById('app');
 let cleanup = null;
 let current = null;
 let renderedDay = dayKey();
+let firstRender = true;
+
+// We restore scroll ourselves (the browser's own restore fights our screen redraws).
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+const saveScroll = () => { if (current) uiState.set('scroll', { screen: current, hash: location.hash, y: window.scrollY }); };
 
 /* ---------- Router ---------- */
 function parseHash() {
@@ -54,7 +60,12 @@ function go(route, { replace = false } = {}) {
   sheetHistorySettled().then(navigate);
 }
 
-function render() {
+/**
+ * Draw the screen for the current URL.
+ * keepScroll: redraw in place (used after a background sync) instead of jumping to the top.
+ */
+function render(opts) {
+  const keepScroll = !!(opts && opts.keepScroll);
   const { name, params } = parseHash();
   const onboarded = store.state.profile.onboarded;
 
@@ -69,7 +80,12 @@ function render() {
 
   appEl.dataset.screen = screen;
   appEl.onclick = null;
-  window.scrollTo(0, 0);
+  // Where to scroll after drawing: same spot (background refresh), the saved spot
+  // (the phone reloaded the page), or the top (normal navigation).
+  const saved = uiState.get('scroll');
+  const y = keepScroll ? window.scrollY
+    : firstRender && saved && saved.hash === location.hash ? saved.y : 0;
+  firstRender = false;
 
   const ctx = { store, engine, go };
   try {
@@ -82,10 +98,20 @@ function render() {
 
   const rs = reviewStatus(store.state, CONFIG.DAILY_REVIEW_SIZE);
   renderTabbar(TAB_SCREENS.has(screen) ? screen : null, { badge: { home: rs.state === 'ready' && screen !== 'home' } });
-  appEl.focus({ preventScroll: true });
+  if (!keepScroll) appEl.focus({ preventScroll: true });
+  window.scrollTo(0, y);
+  if (y) requestAnimationFrame(() => window.scrollTo(0, y)); // again once fonts and layout settle
 }
 
-window.addEventListener('hashchange', render);
+/** Refresh a screen with new synced data without losing your place. Skipped while a sheet is open. */
+function refreshInPlace() {
+  if (isSheetOpen() || !PASSIVE.has(current)) return;
+  render({ keepScroll: true });
+}
+
+window.addEventListener('hashchange', () => render());
+window.addEventListener('scroll', debounce(saveScroll, 200), { passive: true });
+window.addEventListener('pagehide', saveScroll);
 
 document.getElementById('tabbar').addEventListener('click', (e) => {
   const tab = e.target.closest('[data-tab]');
@@ -104,7 +130,7 @@ async function backgroundSync() {
   if (!syncEnabled(store) || !navigator.onLine) return;
   try {
     await syncNow(store);
-    if (PASSIVE.has(current)) render();
+    refreshInPlace();
   } catch (e) {
     console.warn('Sync failed:', e.message);
   }
@@ -137,11 +163,12 @@ status.on((s) => {
 
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
+    saveScroll();
     store.flush();
     if (syncEnabled(store)) syncNow(store).catch(() => {});
   } else {
     // Back in the app: a new day may have started (streak, revision).
-    if (dayKey() !== renderedDay && current !== 'review') render();
+    if (dayKey() !== renderedDay && current !== 'review') render({ keepScroll: true });
     backgroundSync();
   }
 });

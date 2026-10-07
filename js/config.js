@@ -7,7 +7,7 @@
  */
 export const CONFIG = {
   APP_NAME: 'WordNest',
-  VERSION: '1.7.0',
+  VERSION: '1.9.0',
 
   SYNC_URL: 'https://script.google.com/macros/s/AKfycbzc890rFv74CY0Ea6oEsqtkTEYIreW3cHRVlwVosweTF5EDM24Ec6tYzSyeNOTAIEEeTA/exec',
 

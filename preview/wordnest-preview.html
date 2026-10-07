@@ -1237,6 +1237,54 @@ body.no-tabbar .toast-root { bottom: calc(var(--safe-b) + 24px); }
 
   // js/data/seed.js
   var RAW = [
+    /* ---------- TP training, Day 1 (top priority): emotional intelligence, types and history of AI, models, 4D framework ---------- */
+    { w: "emotional intelligence", p: "noun", ipa: "/\u026A\u02C8m\u0259\u028A\u0283\u0259nl \u026An\u02C8tel\u026Ad\u0292\u0259ns/", say: "i-MOH-shuh-nul in-TEL-i-juns", m: "The skill of understanding and managing your own feelings and other people's feelings.", ex: ["Emotional intelligence helps me stay calm on hard calls.", "Our trainer explained emotional intelligence on day one.", "Good emotional intelligence will improve your CSAT."], hi: "\u092D\u093E\u0935\u0928\u093E\u0924\u094D\u092E\u0915 \u092C\u0941\u0926\u094D\u0927\u093F\u092E\u0924\u094D\u0924\u093E", him: "\u0905\u092A\u0928\u0940 \u0914\u0930 \u0926\u0942\u0938\u0930\u094B\u0902 \u0915\u0940 \u092D\u093E\u0935\u0928\u093E\u0913\u0902 \u0915\u094B \u0938\u092E\u091D\u0928\u0947 \u0914\u0930 \u0938\u0902\u092D\u093E\u0932\u0928\u0947 \u0915\u0940 \u0915\u094D\u0937\u092E\u0924\u093E\u0964", d: 3, t: ["training", "cs", "comm"] },
+    { w: "self-awareness", p: "noun", ipa: "/\u02CCself \u0259\u02C8we\u0259n\u0259s/", say: "self uh-WAIR-nus", m: "Knowing your own feelings and how they affect what you do.", ex: ["Self-awareness helps me notice when I am getting stressed.", "Her self-awareness grew after the coaching.", "More self-awareness will help you pause before you reply."], hi: "\u0906\u0924\u094D\u092E-\u091C\u093E\u0917\u0930\u0942\u0915\u0924\u093E", him: "\u0905\u092A\u0928\u0940 \u092D\u093E\u0935\u0928\u093E\u0913\u0902 \u0914\u0930 \u0909\u0928\u0915\u0947 \u0905\u0938\u0930 \u0915\u094B \u092A\u0939\u091A\u093E\u0928\u0928\u093E\u0964", d: 3, t: ["training", "cs", "comm"] },
+    { w: "self-regulation", p: "noun", ipa: "/\u02CCself \u02CCre\u0261ju\u02C8le\u026A\u0283n/", say: "self reg-yoo-LAY-shun", m: "Controlling strong feelings so they don't take over.", ex: ["Self-regulation keeps me polite when a caller shouts.", "His self-regulation slipped during a long shift.", "Short breaks will help your self-regulation."], hi: "\u0906\u0924\u094D\u092E-\u0928\u093F\u092F\u0902\u0924\u094D\u0930\u0923", him: "\u0924\u0947\u091C\u093C \u092D\u093E\u0935\u0928\u093E\u0913\u0902 \u0915\u094B \u0915\u093E\u092C\u0942 \u092E\u0947\u0902 \u0930\u0916\u0928\u093E \u0924\u093E\u0915\u093F \u0935\u0947 \u0906\u092A \u092A\u0930 \u0939\u093E\u0935\u0940 \u0928 \u0939\u094B\u0902\u0964", d: 3.5, t: ["training", "cs", "comm"] },
+    { w: "motivation", p: "noun", ipa: "/\u02CCm\u0259\u028At\u026A\u02C8ve\u026A\u0283n/", say: "moh-ti-VAY-shun", m: "The inner drive to reach your goals.", ex: ["My motivation is to help people well.", "Her motivation was high in the first week.", "Clear goals will keep your motivation strong."], hi: "\u092A\u094D\u0930\u0947\u0930\u0923\u093E", him: "\u0905\u092A\u0928\u0947 \u0932\u0915\u094D\u0937\u094D\u092F \u092A\u093E\u0928\u0947 \u0915\u0940 \u0905\u0902\u0926\u0930\u0942\u0928\u0940 \u0907\u091A\u094D\u091B\u093E\u0964", d: 2, t: ["training", "cs", "comm"] },
+    { w: "empathy", p: "noun", ipa: "/\u02C8emp\u0259\u03B8i/", say: "EM-puh-thee", m: "Understanding and sharing how another person feels.", ex: ["Empathy matters most when a customer is upset.", "He showed empathy before he gave the steps.", "Empathy will build trust faster than a script."], hi: "\u0938\u0939\u093E\u0928\u0941\u092D\u0942\u0924\u093F, \u0938\u092E\u093E\u0928\u0941\u092D\u0942\u0924\u093F", him: "\u0915\u093F\u0938\u0940 \u0926\u0942\u0938\u0930\u0947 \u0915\u0940 \u092D\u093E\u0935\u0928\u093E \u0915\u094B \u0938\u092E\u091D\u0928\u093E \u0914\u0930 \u092E\u0939\u0938\u0942\u0938 \u0915\u0930\u0928\u093E\u0964", d: 2.5, t: ["training", "cs", "comm"] },
+    { w: "social skills", p: "noun", ipa: "/\u02C8s\u0259\u028A\u0283l sk\u026Alz/", say: "SOH-shul SKILZ", m: "Skills for getting on well with people, like listening and solving disagreements.", ex: ["Social skills help you work well in a team.", "She used her social skills to calm the meeting.", "Training will build your social skills."], hi: "\u0938\u093E\u092E\u093E\u091C\u093F\u0915 \u0915\u094C\u0936\u0932", him: "\u0932\u094B\u0917\u094B\u0902 \u0915\u0947 \u0938\u093E\u0925 \u0905\u091A\u094D\u091B\u0947 \u0938\u0947 \u0918\u0941\u0932\u0928\u0947-\u092E\u093F\u0932\u0928\u0947 \u0915\u0947 \u0915\u094C\u0936\u0932, \u091C\u0948\u0938\u0947 \u0938\u0941\u0928\u0928\u093E \u0914\u0930 \u092E\u0924\u092D\u0947\u0926 \u0938\u0941\u0932\u091D\u093E\u0928\u093E\u0964", d: 2, t: ["training", "cs", "comm"] },
+    { w: "active listening", p: "noun", ipa: "/\u02C8\xE6kt\u026Av \u02C8l\u026Asn\u026A\u014B/", say: "AK-tiv LIS-ning", m: "Listening fully, then showing you understood, for example by repeating the key points.", ex: ["Active listening means you don't interrupt.", "Active listening helped me find the real problem.", "Active listening will make customers feel heard."], hi: "\u0938\u0915\u094D\u0930\u093F\u092F \u0930\u0942\u092A \u0938\u0947 \u0938\u0941\u0928\u0928\u093E", him: "\u092A\u0942\u0930\u0947 \u0927\u094D\u092F\u093E\u0928 \u0938\u0947 \u0938\u0941\u0928\u0928\u093E \u0914\u0930 \u0926\u093F\u0916\u093E\u0928\u093E \u0915\u093F \u0906\u092A\u0928\u0947 \u0938\u092E\u091D\u093E, \u091C\u0948\u0938\u0947 \u092E\u0941\u0916\u094D\u092F \u092C\u093E\u0924\u0947\u0902 \u0926\u094B\u0939\u0930\u093E\u0928\u093E\u0964", d: 2.5, t: ["training", "cs", "comm"] },
+    { w: "conflict resolution", p: "noun", ipa: "/\u02C8k\u0252nfl\u026Akt \u02CCrez\u0259\u02C8lu\u02D0\u0283n/", say: "KON-flikt rez-uh-LOO-shun", m: "Finding a fair way to end a disagreement.", ex: ["Conflict resolution starts with listening to both sides.", "The team lead handled the conflict resolution calmly.", "Conflict resolution training will start next week."], hi: "\u0935\u093F\u0935\u093E\u0926 \u0938\u092E\u093E\u0927\u093E\u0928", him: "\u0915\u093F\u0938\u0940 \u092E\u0924\u092D\u0947\u0926 \u0915\u094B \u0928\u093F\u0937\u094D\u092A\u0915\u094D\u0937 \u0924\u0930\u0940\u0915\u0947 \u0938\u0947 \u0916\u0924\u094D\u092E \u0915\u0930\u0928\u093E\u0964", d: 3, t: ["training", "cs", "comm"] },
+    { w: "emotional contagion", p: "noun", ipa: "/\u026A\u02C8m\u0259\u028A\u0283\u0259nl k\u0259n\u02C8te\u026Ad\u0292\u0259n/", say: "i-MOH-shuh-nul kun-TAY-jun", m: "When one person's mood spreads to another, for example your calm tone calming a customer.", ex: ["Emotional contagion means your tone can calm a caller.", "Emotional contagion made the whole team tense that day.", "Emotional contagion will work for you if you stay positive."], hi: "\u092D\u093E\u0935\u0928\u093E\u0913\u0902 \u0915\u093E \u092B\u0948\u0932\u0928\u093E", him: "\u091C\u092C \u090F\u0915 \u0935\u094D\u092F\u0915\u094D\u0924\u093F \u0915\u093E \u092E\u0942\u0921 \u0926\u0942\u0938\u0930\u0947 \u092E\u0947\u0902 \u092B\u0948\u0932 \u091C\u093E\u0924\u093E \u0939\u0948, \u091C\u0948\u0938\u0947 \u0906\u092A\u0915\u0940 \u0936\u093E\u0902\u0924 \u0906\u0935\u093E\u091C\u093C \u0938\u0947 \u0917\u094D\u0930\u093E\u0939\u0915 \u0936\u093E\u0902\u0924 \u0939\u094B\u0928\u093E\u0964", d: 4, t: ["training", "cs", "comm"] },
+    { w: "impulse", p: "noun", ipa: "/\u02C8\u026Amp\u028Cls/", say: "IM-puls", m: "A sudden wish to do something without thinking.", ex: ["I fight the impulse to interrupt.", "He acted on impulse and sent the email too fast.", "Taking a breath will help you control the impulse."], hi: "\u0906\u0935\u0947\u0917", him: "\u092C\u093F\u0928\u093E \u0938\u094B\u091A\u0947 \u0915\u0941\u091B \u0915\u0930\u0928\u0947 \u0915\u0940 \u0905\u091A\u093E\u0928\u0915 \u0907\u091A\u094D\u091B\u093E\u0964", d: 3, t: ["training", "cs", "comm"] },
+    { w: "composure", p: "noun", ipa: "/k\u0259m\u02C8p\u0259\u028A\u0292\u0259/", say: "kum-POH-zher", m: "Staying calm and in control, even under pressure.", ex: ["She keeps her composure on difficult calls.", "He lost his composure for a moment.", "Deep breaths will help you keep your composure."], hi: "\u0927\u0948\u0930\u094D\u092F, \u0938\u0902\u092F\u092E", him: "\u0926\u092C\u093E\u0935 \u092E\u0947\u0902 \u092D\u0940 \u0936\u093E\u0902\u0924 \u0914\u0930 \u0928\u093F\u092F\u0902\u0924\u094D\u0930\u0923 \u092E\u0947\u0902 \u0930\u0939\u0928\u093E\u0964", d: 3.5, t: ["training", "cs", "comm"] },
+    { w: "tone of voice", p: "noun", ipa: "/t\u0259\u028An \u0259v v\u0254\u026As/", say: "tohn uv VOYS", m: "The way your voice sounds, which shows your feelings.", ex: ["Your tone of voice matters as much as your words.", "Her tone of voice calmed the angry customer.", "A warm tone of voice will help on every call."], hi: "\u0906\u0935\u093E\u091C\u093C \u0915\u093E \u0932\u0939\u091C\u093E", him: "\u0906\u092A\u0915\u0940 \u0906\u0935\u093E\u091C\u093C \u0915\u0948\u0938\u0940 \u0932\u0917\u0924\u0940 \u0939\u0948, \u091C\u093F\u0938\u0938\u0947 \u0906\u092A\u0915\u0940 \u092D\u093E\u0935\u0928\u093E \u0926\u093F\u0916\u0924\u0940 \u0939\u0948\u0964", d: 2, t: ["training", "cs", "comm"] },
+    { w: "artificial intelligence", p: "noun", ipa: "/\u02CC\u0251\u02D0t\u026Af\u026A\u0283l \u026An\u02C8tel\u026Ad\u0292\u0259ns/", say: "ar-ti-FISH-ul in-TEL-i-juns", m: "Computer systems that learn from data to do tasks that usually need human thinking.", ex: ["Artificial intelligence helps us answer simple questions faster.", "The term artificial intelligence was first used in 1956.", "Artificial intelligence will keep changing customer service."], hi: "\u0915\u0943\u0924\u094D\u0930\u093F\u092E \u092C\u0941\u0926\u094D\u0927\u093F\u092E\u0924\u094D\u0924\u093E", him: "\u0915\u0902\u092A\u094D\u092F\u0942\u091F\u0930 \u0938\u093F\u0938\u094D\u091F\u092E \u091C\u094B \u0921\u0947\u091F\u093E \u0938\u0947 \u0938\u0940\u0916\u0915\u0930 \u0910\u0938\u0947 \u0915\u093E\u092E \u0915\u0930\u0924\u0947 \u0939\u0948\u0902 \u091C\u093F\u0928\u092E\u0947\u0902 \u0906\u092E \u0924\u094C\u0930 \u092A\u0930 \u0907\u0902\u0938\u093E\u0928\u0940 \u0938\u094B\u091A \u0932\u0917\u0924\u0940 \u0939\u0948\u0964", d: 2, t: ["training", "ai"] },
+    { w: "narrow AI", p: "noun", ipa: "/\u02C8n\xE6r\u0259\u028A \u02CCe\u026A \u02C8a\u026A/", say: "NAR-oh ay EYE", m: "AI built for specific tasks, also called ANI. All AI today is narrow AI.", ex: ["ChatGPT is still narrow AI, even though it is versatile.", "The trainer gave spam filters as an example of narrow AI.", "Narrow AI will stay the norm for now."], hi: "\u0938\u0902\u0915\u0940\u0930\u094D\u0923 AI (ANI)", him: "\u0916\u093E\u0938 \u0915\u093E\u092E\u094B\u0902 \u0915\u0947 \u0932\u093F\u090F \u092C\u0928\u0940 AI; \u0906\u091C \u0915\u0940 \u0938\u093E\u0930\u0940 AI \u0907\u0938\u0940 \u0924\u0930\u0939 \u0915\u0940 \u0939\u0948\u0964", d: 3, t: ["training", "ai"] },
+    { w: "artificial general intelligence", p: "noun", ipa: "/\u02CC\u0251\u02D0t\u026Af\u026A\u0283l \u02C8d\u0292enr\u0259l \u026An\u02C8tel\u026Ad\u0292\u0259ns/", say: "ar-ti-FISH-ul JEN-ruhl in-TEL-i-juns", m: "AI that could learn and reason like a human in any field. It does not exist yet. Often called AGI.", ex: ["Artificial general intelligence is still only a theory.", "Experts discussed artificial general intelligence in the 1960s too.", "Nobody knows when artificial general intelligence will arrive."], hi: "\u0938\u093E\u092E\u093E\u0928\u094D\u092F \u0915\u0943\u0924\u094D\u0930\u093F\u092E \u092C\u0941\u0926\u094D\u0927\u093F\u092E\u0924\u094D\u0924\u093E (AGI)", him: "\u0910\u0938\u0940 AI \u091C\u094B \u0915\u093F\u0938\u0940 \u092D\u0940 \u0915\u094D\u0937\u0947\u0924\u094D\u0930 \u092E\u0947\u0902 \u0907\u0902\u0938\u093E\u0928 \u0915\u0940 \u0924\u0930\u0939 \u0938\u0940\u0916 \u0914\u0930 \u0938\u094B\u091A \u0938\u0915\u0947; \u092F\u0939 \u0905\u092D\u0940 \u092E\u094C\u091C\u0942\u0926 \u0928\u0939\u0940\u0902 \u0939\u0948\u0964", d: 4, t: ["training", "ai"] },
+    { w: "superintelligence", p: "noun", ipa: "/\u02CCsu\u02D0p\u0259r\u026An\u02C8tel\u026Ad\u0292\u0259ns/", say: "soo-per-in-TEL-i-juns", m: "A possible future AI that is smarter than humans in every field. Often called ASI.", ex: ["Superintelligence is a hypothetical idea.", "The article discussed superintelligence and its risks.", "Superintelligence will remain science fiction for now."], hi: "\u0905\u0924\u093F-\u092C\u0941\u0926\u094D\u0927\u093F\u092E\u0924\u094D\u0924\u093E (ASI)", him: "\u092D\u0935\u093F\u0937\u094D\u092F \u0915\u0940 \u0938\u0902\u092D\u093E\u0935\u093F\u0924 AI \u091C\u094B \u0939\u0930 \u0915\u094D\u0937\u0947\u0924\u094D\u0930 \u092E\u0947\u0902 \u0907\u0902\u0938\u093E\u0928\u094B\u0902 \u0938\u0947 \u091C\u093C\u094D\u092F\u093E\u0926\u093E \u0938\u092E\u091D\u0926\u093E\u0930 \u0939\u094B\u0964", d: 4.5, t: ["training", "ai"] },
+    { w: "theoretical", p: "adjective", ipa: "/\u02CC\u03B8\u026A\u0259\u02C8ret\u026Akl/", say: "theer-RET-i-kul", m: "Based on ideas, not yet real or tested.", ex: ["AGI is still theoretical.", "The risk was only theoretical at first.", "This plan will stay theoretical until we test it."], hi: "\u0938\u0948\u0926\u094D\u0927\u093E\u0902\u0924\u093F\u0915", him: "\u0935\u093F\u091A\u093E\u0930\u094B\u0902 \u092A\u0930 \u0906\u0927\u093E\u0930\u093F\u0924, \u0905\u092D\u0940 \u0905\u0938\u0932 \u092E\u0947\u0902 \u092F\u093E \u091C\u093E\u0902\u091A\u093E \u0939\u0941\u0906 \u0928\u0939\u0940\u0902\u0964", d: 3.5, t: ["training", "ai"] },
+    { w: "hypothetical", p: "adjective", ipa: "/\u02CCha\u026Ap\u0259\u02C8\u03B8et\u026Akl/", say: "hy-puh-THET-i-kul", m: "Imagined as possible, but not real.", ex: ["ASI is a hypothetical stage of AI.", "She asked a hypothetical question about refunds.", "We will use a hypothetical customer in the role-play."], hi: "\u0915\u093E\u0932\u094D\u092A\u0928\u093F\u0915", him: "\u0938\u0902\u092D\u0935 \u092E\u093E\u0928\u093E \u0917\u092F\u093E, \u0932\u0947\u0915\u093F\u0928 \u0905\u0938\u0932\u0940 \u0928\u0939\u0940\u0902\u0964", d: 3.5, t: ["training", "ai"] },
+    { w: "versatile", p: "adjective", ipa: "/\u02C8v\u025C\u02D0s\u0259ta\u026Al/", say: "VUR-suh-tyl", m: "Able to do many different things well.", ex: ["ChatGPT is versatile but still narrow AI.", "She was versatile and covered chat and email.", "A versatile agent will handle any queue."], hi: "\u092C\u0939\u0941\u092E\u0941\u0916\u0940", him: "\u0915\u0908 \u0905\u0932\u0917-\u0905\u0932\u0917 \u0915\u093E\u092E \u0905\u091A\u094D\u091B\u0947 \u0938\u0947 \u0915\u0930 \u0938\u0915\u0928\u0947 \u0935\u093E\u0932\u093E\u0964", d: 3, t: ["training", "ai", "cs"] },
+    { w: "surpass", p: "verb", ipa: "/s\u0259\u02C8p\u0251\u02D0s/", say: "ser-PASS", m: "To do better than someone or something.", ex: ["Our team often surpasses its CSAT target.", "Sales surpassed the forecast in May.", "Some people say AI will surpass humans one day."], hi: "\u092A\u093E\u0930 \u0915\u0930\u0928\u093E, \u0906\u0917\u0947 \u0928\u093F\u0915\u0932\u0928\u093E", him: "\u0915\u093F\u0938\u0940 \u0938\u0947 \u092C\u0947\u0939\u0924\u0930 \u0915\u0930\u0928\u093E \u092F\u093E \u0906\u0917\u0947 \u0928\u093F\u0915\u0932 \u091C\u093E\u0928\u093E\u0964", d: 3.5, t: ["training", "ai"] },
+    { w: "Turing Test", p: "noun", ipa: "/\u02C8tj\u028A\u0259r\u026A\u014B test/", say: "TYOOR-ing test", m: "A test from 1950: can a machine chat so well that a person thinks it is human?", ex: ["The Turing Test asks if a machine can pass as human.", "Alan Turing proposed the Turing Test in 1950.", "Some chatbots will pass the Turing Test in short chats."], hi: "\u091F\u094D\u092F\u0942\u0930\u093F\u0902\u0917 \u091F\u0947\u0938\u094D\u091F", him: "1950 \u0915\u093E \u092A\u0930\u0940\u0915\u094D\u0937\u0923: \u0915\u094D\u092F\u093E \u092E\u0936\u0940\u0928 \u0907\u0924\u0928\u0940 \u0905\u091A\u094D\u091B\u0940 \u092C\u093E\u0924 \u0915\u0930 \u0938\u0915\u0924\u0940 \u0939\u0948 \u0915\u093F \u0907\u0902\u0938\u093E\u0928 \u0909\u0938\u0947 \u0907\u0902\u0938\u093E\u0928 \u0938\u092E\u091D\u0947?", d: 3, t: ["training", "ai", "tech"] },
+    { w: "expert system", p: "noun", ipa: "/\u02C8eksp\u025C\u02D0t \u02C8s\u026Ast\u0259m/", say: "EKS-purt SIS-tum", m: "Early AI that followed a big set of if-then rules written by experts.", ex: ["An expert system follows fixed if-then rules.", "Banks used expert systems in the 1980s.", "An expert system will fail when a case is new."], hi: "\u0935\u093F\u0936\u0947\u0937\u091C\u094D\u091E \u092A\u094D\u0930\u0923\u093E\u0932\u0940", him: '\u0936\u0941\u0930\u0941\u0906\u0924\u0940 AI \u091C\u094B \u0935\u093F\u0936\u0947\u0937\u091C\u094D\u091E\u094B\u0902 \u0915\u0947 \u0932\u093F\u0916\u0947 "\u0905\u0917\u0930-\u0924\u094B" \u0928\u093F\u092F\u092E\u094B\u0902 \u092A\u0930 \u091A\u0932\u0924\u0940 \u0925\u0940\u0964', d: 3.5, t: ["training", "ai", "tech"] },
+    { w: "rule-based", p: "adjective", ipa: "/\u02C8ru\u02D0l be\u026Ast/", say: "ROOL-bayst", m: "Working by following fixed rules written by people.", ex: ["Old chatbots were rule-based.", "The first system was rule-based and rigid.", "A rule-based filter will miss new tricks."], hi: "\u0928\u093F\u092F\u092E-\u0906\u0927\u093E\u0930\u093F\u0924", him: "\u0932\u094B\u0917\u094B\u0902 \u0915\u0947 \u0932\u093F\u0916\u0947 \u0924\u092F \u0928\u093F\u092F\u092E\u094B\u0902 \u0915\u0947 \u0939\u093F\u0938\u093E\u092C \u0938\u0947 \u091A\u0932\u0928\u0947 \u0935\u093E\u0932\u093E\u0964", d: 3, t: ["training", "ai", "tech"] },
+    { w: "machine learning", p: "noun", ipa: "/m\u0259\u02C8\u0283i\u02D0n \u02C8l\u025C\u02D0n\u026A\u014B/", say: "muh-SHEEN LUR-ning", m: "When computers learn patterns from data instead of being told every rule.", ex: ["Machine learning powers our spam filter.", "Machine learning changed AI in the 2010s.", "Machine learning will improve as it gets more data."], hi: "\u092E\u0936\u0940\u0928 \u0932\u0930\u094D\u0928\u093F\u0902\u0917", him: "\u091C\u092C \u0915\u0902\u092A\u094D\u092F\u0942\u091F\u0930 \u0939\u0930 \u0928\u093F\u092F\u092E \u092C\u0924\u093E\u090F \u091C\u093E\u0928\u0947 \u0915\u0940 \u091C\u0917\u0939 \u0921\u0947\u091F\u093E \u0938\u0947 \u092A\u0948\u091F\u0930\u094D\u0928 \u0938\u0940\u0916\u0924\u0947 \u0939\u0948\u0902\u0964", d: 2.5, t: ["training", "ai", "tech"] },
+    { w: "deep learning", p: "noun", ipa: "/di\u02D0p \u02C8l\u025C\u02D0n\u026A\u014B/", say: "deep LUR-ning", m: "Machine learning that uses large neural networks with many layers.", ex: ["Deep learning needs a lot of data.", "Deep learning made voice assistants much better.", "Deep learning will keep improving image tools."], hi: "\u0921\u0940\u092A \u0932\u0930\u094D\u0928\u093F\u0902\u0917", him: "\u092E\u0936\u0940\u0928 \u0932\u0930\u094D\u0928\u093F\u0902\u0917 \u091C\u094B \u0915\u0908 \u092A\u0930\u0924\u094B\u0902 \u0935\u093E\u0932\u0947 \u092C\u0921\u093C\u0947 \u0928\u094D\u092F\u0942\u0930\u0932 \u0928\u0947\u091F\u0935\u0930\u094D\u0915 \u0907\u0938\u094D\u0924\u0947\u092E\u093E\u0932 \u0915\u0930\u0924\u0940 \u0939\u0948\u0964", d: 3.5, t: ["training", "ai", "tech"] },
+    { w: "neural network", p: "noun", ipa: "/\u02C8nj\u028A\u0259r\u0259l \u02C8netw\u025C\u02D0k/", say: "NYOOR-ul NET-wurk", m: "A computer system loosely inspired by the brain, made of connected layers that learn from data.", ex: ["A neural network learns from examples.", "Researchers trained a neural network on millions of images.", "A bigger neural network will need more computing power."], hi: "\u0928\u094D\u092F\u0942\u0930\u0932 \u0928\u0947\u091F\u0935\u0930\u094D\u0915", him: "\u0926\u093F\u092E\u093E\u0917 \u0938\u0947 \u092A\u094D\u0930\u0947\u0930\u093F\u0924 \u0915\u0902\u092A\u094D\u092F\u0942\u091F\u0930 \u0938\u093F\u0938\u094D\u091F\u092E, \u091C\u0941\u0921\u093C\u0940 \u092A\u0930\u0924\u094B\u0902 \u0938\u0947 \u092C\u0928\u093E, \u091C\u094B \u0921\u0947\u091F\u093E \u0938\u0947 \u0938\u0940\u0916\u0924\u093E \u0939\u0948\u0964", d: 4, t: ["training", "ai", "tech"] },
+    { w: "AI winter", p: "noun", ipa: "/\u02CCe\u026A \u02C8a\u026A \u02C8w\u026Ant\u0259/", say: "ay EYE WIN-ter", m: "A period when AI funding and interest dropped after big promises were not met.", ex: ["An AI winter can follow too much hype.", "The first AI winter came in the mid-1970s.", "Some fear another AI winter will come."], hi: "AI \u0935\u093F\u0902\u091F\u0930 (\u092E\u0902\u0926\u0940 \u0915\u093E \u0926\u094C\u0930)", him: "\u0935\u0939 \u0926\u094C\u0930 \u091C\u092C \u092C\u0921\u093C\u0947 \u0935\u093E\u0926\u0947 \u092A\u0942\u0930\u0947 \u0928 \u0939\u094B\u0928\u0947 \u092A\u0930 AI \u092E\u0947\u0902 \u0928\u093F\u0935\u0947\u0936 \u0914\u0930 \u0930\u0941\u091A\u093F \u0918\u091F \u0917\u0908\u0964", d: 3.5, t: ["training", "ai", "tech"] },
+    { w: "hype", p: "noun", ipa: "/ha\u026Ap/", say: "hyp", m: "Too much excitement or promotion, often more than something deserves.", ex: ["There is a lot of hype around new AI tools.", "The hype faded when the results were weak.", "Real results will matter more than hype."], hi: "\u0905\u0924\u093F\u092A\u094D\u0930\u091A\u093E\u0930", him: "\u0915\u093F\u0938\u0940 \u091A\u0940\u091C\u093C \u0915\u094B \u0932\u0947\u0915\u0930 \u091C\u093C\u0930\u0942\u0930\u0924 \u0938\u0947 \u091C\u093C\u094D\u092F\u093E\u0926\u093E \u0909\u0924\u094D\u0938\u093E\u0939 \u092F\u093E \u092A\u094D\u0930\u091A\u093E\u0930\u0964", d: 2.5, t: ["training", "ai", "tech"] },
+    { w: "hype cycle", p: "noun", ipa: "/ha\u026Ap \u02C8sa\u026Akl/", say: "hyp SY-kul", m: "The pattern where excitement about new technology rises, falls, then settles into real use.", ex: ["Every new technology goes through a hype cycle.", "Early chatbots went through a hype cycle too.", "The hype cycle will explain why interest drops."], hi: "\u0939\u093E\u0907\u092A \u091A\u0915\u094D\u0930", him: "\u0928\u0908 \u0924\u0915\u0928\u0940\u0915 \u0915\u094B \u0932\u0947\u0915\u0930 \u0909\u0924\u094D\u0938\u093E\u0939 \u092C\u0922\u093C\u0928\u0947, \u0917\u093F\u0930\u0928\u0947 \u0914\u0930 \u092B\u093F\u0930 \u0938\u0902\u0924\u0941\u0932\u093F\u0924 \u0939\u094B\u0928\u0947 \u0915\u093E \u0915\u094D\u0930\u092E\u0964", d: 4, t: ["training", "ai", "tech"] },
+    { w: "funding", p: "noun", ipa: "/\u02C8f\u028Cnd\u026A\u014B/", say: "FUN-ding", m: "Money given for a project or research.", ex: ["Research needs steady funding.", "Funding was cut during the AI winter.", "New funding will speed up the project."], hi: "\u0927\u0928, \u092B\u0902\u0921\u093F\u0902\u0917", him: "\u0915\u093F\u0938\u0940 \u092A\u094D\u0930\u094B\u091C\u0947\u0915\u094D\u091F \u092F\u093E \u0936\u094B\u0927 \u0915\u0947 \u0932\u093F\u090F \u0926\u093F\u092F\u093E \u0917\u092F\u093E \u092A\u0948\u0938\u093E\u0964", d: 2.5, t: ["training", "ai", "tech"] },
+    { w: "coin a term", p: "phrase", ipa: "/k\u0254\u026An \u0259 t\u025C\u02D0m/", say: "koyn uh TURM", m: "To invent a new word or phrase that people start using.", ex: ["Researchers often coin a term for a new idea.", "John McCarthy coined the term artificial intelligence in 1956.", "Someone will coin a term for this trend soon."], hi: "\u0928\u092F\u093E \u0936\u092C\u094D\u0926 \u0917\u0922\u093C\u0928\u093E", him: "\u0915\u094B\u0908 \u0928\u092F\u093E \u0936\u092C\u094D\u0926 \u092F\u093E \u0935\u093E\u0915\u094D\u092F\u093E\u0902\u0936 \u092C\u0928\u093E\u0928\u093E \u091C\u093F\u0938\u0947 \u0932\u094B\u0917 \u0907\u0938\u094D\u0924\u0947\u092E\u093E\u0932 \u0915\u0930\u0928\u0947 \u0932\u0917\u0947\u0902\u0964", d: 3.5, t: ["training", "ai", "tech"] },
+    { w: "generative AI", p: "noun", ipa: "/\u02C8d\u0292en\u0259r\u0259t\u026Av \u02CCe\u026A \u02C8a\u026A/", say: "JEN-er-uh-tiv ay EYE", m: "AI that creates new text, images, sound or code.", ex: ["Generative AI writes drafts in seconds.", "Generative AI became popular in 2022.", "Generative AI will change how we write emails."], hi: "\u091C\u0928\u0930\u0947\u091F\u093F\u0935 AI", him: "AI \u091C\u094B \u0928\u092F\u093E \u091F\u0947\u0915\u094D\u0938\u094D\u091F, \u091A\u093F\u0924\u094D\u0930, \u0906\u0935\u093E\u091C\u093C \u092F\u093E \u0915\u094B\u0921 \u092C\u0928\u093E\u0924\u0940 \u0939\u0948\u0964", d: 2.5, t: ["training", "ai", "tech"] },
+    { w: "multimodal", p: "adjective", ipa: "/\u02CCm\u028Clti\u02C8m\u0259\u028Adl/", say: "mul-tee-MOH-dul", m: "Able to work with text, images and audio together.", ex: ["GPT-4o is multimodal.", "The first multimodal model surprised many users.", "Multimodal tools will read screenshots for us."], hi: "\u092C\u0939\u0941-\u092E\u093E\u0927\u094D\u092F\u092E (\u092E\u0932\u094D\u091F\u0940\u092E\u094B\u0921\u0932)", him: "\u091F\u0947\u0915\u094D\u0938\u094D\u091F, \u091A\u093F\u0924\u094D\u0930 \u0914\u0930 \u0906\u0935\u093E\u091C\u093C \u0915\u0947 \u0938\u093E\u0925 \u090F\u0915 \u0938\u093E\u0925 \u0915\u093E\u092E \u0915\u0930 \u0938\u0915\u0928\u0947 \u0935\u093E\u0932\u093E\u0964", d: 3.5, t: ["training", "ai", "tech"] },
+    { w: "reasoning model", p: "noun", ipa: "/\u02C8ri\u02D0z\u0259n\u026A\u014B \u02C8m\u0252dl/", say: "REE-zuh-ning MOD-ul", m: "An AI model that works through steps before answering. Good for maths and logic.", ex: ["A reasoning model is slower but more careful.", "He used a reasoning model for the budget problem.", "A reasoning model will help with tricky logic."], hi: "\u0924\u0930\u094D\u0915 \u0915\u0930\u0928\u0947 \u0935\u093E\u0932\u093E \u092E\u0949\u0921\u0932", him: "AI \u092E\u0949\u0921\u0932 \u091C\u094B \u091C\u0935\u093E\u092C \u0938\u0947 \u092A\u0939\u0932\u0947 \u0915\u0926\u092E-\u0926\u0930-\u0915\u0926\u092E \u0938\u094B\u091A\u0924\u093E \u0939\u0948, \u0917\u0923\u093F\u0924 \u0914\u0930 \u0924\u0930\u094D\u0915 \u092E\u0947\u0902 \u0905\u091A\u094D\u091B\u093E\u0964", d: 3.5, t: ["training", "ai", "tech"] },
+    { w: "chain of thought", p: "noun", ipa: "/t\u0283e\u026An \u0259v \u03B8\u0254\u02D0t/", say: "chayn uv THAWT", m: "Working through a problem one step at a time before giving the answer.", ex: ["Chain of thought helps the model avoid mistakes.", "The trainer showed chain of thought with a maths example.", "Chain of thought will make the answer slower but better."], hi: "\u0935\u093F\u091A\u093E\u0930\u094B\u0902 \u0915\u0940 \u0915\u0921\u093C\u0940", him: "\u091C\u0935\u093E\u092C \u0926\u0947\u0928\u0947 \u0938\u0947 \u092A\u0939\u0932\u0947 \u0938\u092E\u0938\u094D\u092F\u093E \u0915\u094B \u090F\u0915-\u090F\u0915 \u0915\u0926\u092E \u0915\u0930\u0915\u0947 \u0938\u0941\u0932\u091D\u093E\u0928\u093E\u0964", d: 4, t: ["training", "ai", "tech"] },
+    { w: "fine-tuning", p: "noun", ipa: "/\u02CCfa\u026An \u02C8tju\u02D0n\u026A\u014B/", say: "fyn-TYOO-ning", m: "Training an existing AI model a bit more on special data so it gets better at one job.", ex: ["Fine-tuning teaches a model a company's style.", "Fine-tuning improved the model's answers about billing.", "Fine-tuning will cost more than better prompts."], hi: "\u092B\u093C\u093E\u0907\u0928-\u091F\u094D\u092F\u0942\u0928\u093F\u0902\u0917", him: "\u0915\u093F\u0938\u0940 \u092E\u094C\u091C\u0942\u0926\u093E AI \u092E\u0949\u0921\u0932 \u0915\u094B \u0916\u093E\u0938 \u0921\u0947\u091F\u093E \u092A\u0930 \u0925\u094B\u0921\u093C\u093E \u0914\u0930 \u0938\u093F\u0916\u093E\u0928\u093E \u0924\u093E\u0915\u093F \u0935\u0939 \u090F\u0915 \u0915\u093E\u092E \u092E\u0947\u0902 \u092C\u0947\u0939\u0924\u0930 \u0939\u094B\u0964", d: 4, t: ["training", "ai", "tech"] },
+    { w: "prompt engineering", p: "noun", ipa: "/pr\u0252mpt \u02CCend\u0292\u026A\u02C8n\u026A\u0259r\u026A\u014B/", say: "prompt en-ji-NEER-ing", m: "Writing and improving prompts to get better AI answers.", ex: ["Prompt engineering is a useful support skill.", "Good prompt engineering fixed the vague answers.", "Prompt engineering will save you time every day."], hi: "\u092A\u094D\u0930\u0949\u092E\u094D\u092A\u094D\u091F \u0907\u0902\u091C\u0940\u0928\u093F\u092F\u0930\u093F\u0902\u0917", him: "\u092C\u0947\u0939\u0924\u0930 AI \u091C\u0935\u093E\u092C \u092A\u093E\u0928\u0947 \u0915\u0947 \u0932\u093F\u090F \u092A\u094D\u0930\u0949\u092E\u094D\u092A\u094D\u091F \u0932\u093F\u0916\u0928\u093E \u0914\u0930 \u0938\u0941\u0927\u093E\u0930\u0928\u093E\u0964", d: 3, t: ["training", "ai", "tech"] },
+    { w: "instruction-following", p: "noun", ipa: "/\u026An\u02C8str\u028Ck\u0283n \u02C8f\u0252l\u0259\u028A\u026A\u014B/", say: "in-STRUK-shun FOL-oh-ing", m: "How well an AI does exactly what you asked.", ex: ["Newer models have better instruction-following.", "The old model's instruction-following was weak.", "Clear prompts will improve instruction-following."], hi: "\u0928\u093F\u0930\u094D\u0926\u0947\u0936\u094B\u0902 \u0915\u093E \u092A\u093E\u0932\u0928", him: "AI \u0920\u0940\u0915 \u0935\u0939\u0940 \u0915\u0930\u0924\u093E \u0939\u0948 \u092F\u093E \u0928\u0939\u0940\u0902 \u091C\u094B \u0906\u092A\u0928\u0947 \u0915\u0939\u093E\u0964", d: 3.5, t: ["training", "ai", "tech"] },
+    { w: "cost-efficient", p: "adjective", ipa: "/k\u0252st \u026A\u02C8f\u026A\u0283nt/", say: "kost i-FISH-unt", m: "Giving good results without spending much.", ex: ["GPT-4o mini is cost-efficient for simple tasks.", "The smaller model was more cost-efficient.", "A cost-efficient model will handle high volumes."], hi: "\u0915\u093F\u092B\u093C\u093E\u092F\u0924\u0940", him: "\u0915\u092E \u0916\u0930\u094D\u091A \u092E\u0947\u0902 \u0905\u091A\u094D\u091B\u093E \u0928\u0924\u0940\u091C\u093E \u0926\u0947\u0928\u0947 \u0935\u093E\u0932\u093E\u0964", d: 3, t: ["training", "ai", "tech"] },
+    { w: "legacy", p: "adjective", ipa: "/\u02C8le\u0261\u0259si/", say: "LEG-uh-see", m: "Old but still in use, and often being replaced by something newer.", ex: ["GPT-3.5 is now a legacy model.", "We moved off the legacy system last year.", "Legacy models will retire on a schedule."], hi: "\u092A\u0941\u0930\u093E\u0928\u093E (\u0932\u0947\u0917\u0947\u0938\u0940)", him: "\u092A\u0941\u0930\u093E\u0928\u093E \u0932\u0947\u0915\u093F\u0928 \u0905\u092D\u0940 \u092D\u0940 \u0907\u0938\u094D\u0924\u0947\u092E\u093E\u0932 \u092E\u0947\u0902, \u0905\u0915\u094D\u0938\u0930 \u0928\u090F \u0938\u0947 \u092C\u0926\u0932\u093E \u091C\u093E\u0928\u0947 \u0935\u093E\u0932\u093E\u0964", d: 3, t: ["training", "ai", "tech"] },
+    { w: "parameter", p: "noun", ipa: "/p\u0259\u02C8r\xE6m\u026At\u0259/", say: "puh-RAM-i-ter", m: "A setting or number inside a model or system that shapes how it works.", ex: ["Each model has billions of parameters.", "They changed one parameter and the results improved.", "The new parameter will control reply length."], hi: "\u092A\u0948\u0930\u093E\u092E\u0940\u091F\u0930", him: "\u092E\u0949\u0921\u0932 \u092F\u093E \u0938\u093F\u0938\u094D\u091F\u092E \u0915\u0947 \u0905\u0902\u0926\u0930 \u0915\u0940 \u0938\u0947\u091F\u093F\u0902\u0917 \u092F\u093E \u0938\u0902\u0916\u094D\u092F\u093E \u091C\u094B \u0909\u0938\u0915\u0947 \u0915\u093E\u092E \u0915\u094B \u0924\u092F \u0915\u0930\u0924\u0940 \u0939\u0948\u0964", d: 3.5, t: ["training", "ai", "tech"] },
+    { w: "delegation", p: "noun", ipa: "/\u02CCdel\u026A\u02C8\u0261e\u026A\u0283n/", say: "del-i-GAY-shun", m: "Deciding which tasks to hand to AI or to others, and which to do yourself.", ex: ["Delegation means AI drafts and I check.", "Good delegation saved me an hour yesterday.", "Delegation will free up time for hard cases."], hi: "\u0915\u093E\u092E \u0938\u094C\u0902\u092A\u0928\u093E", him: "\u0924\u092F \u0915\u0930\u0928\u093E \u0915\u093F \u0915\u094C\u0928 \u0938\u0947 \u0915\u093E\u092E AI \u092F\u093E \u0926\u0942\u0938\u0930\u094B\u0902 \u0915\u094B \u0926\u0947\u0928\u0947 \u0939\u0948\u0902 \u0914\u0930 \u0915\u094C\u0928 \u0938\u0947 \u0916\u0941\u0926 \u0915\u0930\u0928\u0947 \u0939\u0948\u0902\u0964", d: 3, t: ["training", "ai", "cs"] },
+    { w: "discernment", p: "noun", ipa: "/d\u026A\u02C8s\u025C\u02D0nm\u0259nt/", say: "di-SURN-munt", m: "Judging carefully whether something, like an AI answer, is true and right to use.", ex: ["Discernment means checking AI answers before sending.", "Her discernment caught a wrong refund date.", "Discernment will protect customers from hallucinations."], hi: "\u0935\u093F\u0935\u0947\u0915, \u092A\u0930\u0916", him: "\u0915\u093F\u0938\u0940 \u091A\u0940\u091C\u093C, \u091C\u0948\u0938\u0947 AI \u091C\u0935\u093E\u092C, \u0915\u094B \u0927\u094D\u092F\u093E\u0928 \u0938\u0947 \u092A\u0930\u0916\u0928\u093E \u0915\u093F \u0935\u0939 \u0938\u0939\u0940 \u0939\u0948 \u092F\u093E \u0928\u0939\u0940\u0902\u0964", d: 4, t: ["training", "ai", "cs"] },
+    { w: "diligence", p: "noun", ipa: "/\u02C8d\u026Al\u026Ad\u0292\u0259ns/", say: "DIL-i-juns", m: "Careful, responsible work, including keeping customer data safe.", ex: ["Diligence means no customer data in public AI tools.", "His diligence kept the case notes accurate.", "Diligence will matter more as we use more AI."], hi: "\u0932\u0917\u0928, \u0938\u093E\u0935\u0927\u093E\u0928\u0940", him: "\u0938\u093E\u0935\u0927\u093E\u0928\u0940 \u0914\u0930 \u091C\u093C\u093F\u092E\u094D\u092E\u0947\u0926\u093E\u0930\u0940 \u0938\u0947 \u0915\u093E\u092E \u0915\u0930\u0928\u093E, \u091C\u0948\u0938\u0947 \u0917\u094D\u0930\u093E\u0939\u0915 \u0915\u093E \u0921\u0947\u091F\u093E \u0938\u0941\u0930\u0915\u094D\u0937\u093F\u0924 \u0930\u0916\u0928\u093E\u0964", d: 3.5, t: ["training", "ai", "cs"] },
+    { w: "bias", p: "noun", ipa: "/\u02C8ba\u026A\u0259s/", say: "BY-us", m: "An unfair leaning for or against someone or something.", ex: ["AI can show bias from its training data.", "We found bias in the old test questions.", "Careful review will reduce bias."], hi: "\u092A\u0915\u094D\u0937\u092A\u093E\u0924", him: "\u0915\u093F\u0938\u0940 \u0915\u0947 \u092A\u0915\u094D\u0937 \u092F\u093E \u0935\u093F\u0930\u094B\u0927 \u092E\u0947\u0902 \u0905\u0928\u0941\u091A\u093F\u0924 \u091D\u0941\u0915\u093E\u0935\u0964", d: 3, t: ["training", "ai", "cs"] },
+    { w: "human-in-the-loop", p: "noun", ipa: "/\u02C8hju\u02D0m\u0259n \u026An \xF0\u0259 lu\u02D0p/", say: "HYOO-mun in thuh LOOP", m: "A person reviews AI work before it reaches a customer.", ex: ["Human-in-the-loop means I check every AI draft.", "Human-in-the-loop caught two wrong answers yesterday.", "Human-in-the-loop will stay part of our process."], hi: "\u092E\u093E\u0928\u0935\u0940\u092F \u0928\u093F\u0917\u0930\u093E\u0928\u0940 (\u0939\u094D\u092F\u0942\u092E\u0928-\u0907\u0928-\u0926-\u0932\u0942\u092A)", him: "AI \u0915\u093E \u0915\u093E\u092E \u0917\u094D\u0930\u093E\u0939\u0915 \u0924\u0915 \u092A\u0939\u0941\u0901\u091A\u0928\u0947 \u0938\u0947 \u092A\u0939\u0932\u0947 \u0907\u0902\u0938\u093E\u0928 \u0909\u0938\u0915\u0940 \u091C\u093E\u0902\u091A \u0915\u0930\u0924\u093E \u0939\u0948\u0964", d: 3.5, t: ["training", "ai", "cs"] },
+    { w: "AI fluency", p: "noun", ipa: "/\u02CCe\u026A \u02C8a\u026A \u02C8flu\u02D0\u0259nsi/", say: "ay EYE FLOO-un-see", m: "The skill of using AI well, safely and with good judgment.", ex: ["AI fluency is part of our training.", "Her AI fluency improved after the course.", "AI fluency will be a key skill for agents."], hi: "AI \u092E\u0947\u0902 \u0926\u0915\u094D\u0937\u0924\u093E", him: "AI \u0915\u094B \u0905\u091A\u094D\u091B\u0947 \u0938\u0947, \u0938\u0941\u0930\u0915\u094D\u0937\u093F\u0924 \u0914\u0930 \u0938\u092E\u091D\u0926\u093E\u0930\u0940 \u0938\u0947 \u0907\u0938\u094D\u0924\u0947\u092E\u093E\u0932 \u0915\u0930\u0928\u0947 \u0915\u093E \u0915\u094C\u0936\u0932\u0964", d: 3, t: ["training", "ai", "cs"] },
     { w: "ticket", p: "noun", ipa: "/\u02C8t\u026Ak\u026At/", say: "TIK-it", m: "A record of a customer's problem in the support system.", ex: ["Each ticket has its own number.", "I closed twenty tickets yesterday.", "I will open a ticket for your request."], hi: "\u091F\u093F\u0915\u091F (\u0936\u093F\u0915\u093E\u092F\u0924 \u0915\u093E \u0930\u093F\u0915\u0949\u0930\u094D\u0921)", him: "\u0938\u093F\u0938\u094D\u091F\u092E \u092E\u0947\u0902 \u0926\u0930\u094D\u091C \u0917\u094D\u0930\u093E\u0939\u0915 \u0915\u0940 \u0938\u092E\u0938\u094D\u092F\u093E \u0915\u093E \u0930\u093F\u0915\u0949\u0930\u094D\u0921\u0964", d: 1, t: ["cs", "tech"] },
     { w: "refund", p: "noun, verb", ipa: "/\u02C8ri\u02D0f\u028Cnd/", say: "REE-fund", m: "Money given back to a customer.", ex: ["The refund takes five to ten days.", "We refunded the full amount last week.", "You will get a refund for this month."], hi: "\u0930\u093F\u092B\u0902\u0921, \u0927\u0928\u0935\u093E\u092A\u0938\u0940", him: "\u0917\u094D\u0930\u093E\u0939\u0915 \u0915\u094B \u0909\u0938\u0915\u093E \u092A\u0948\u0938\u093E \u0935\u093E\u092A\u0938 \u0926\u0947\u0928\u093E\u0964", d: 1, t: ["cs"] },
     { w: "feedback", p: "noun", ipa: "/\u02C8fi\u02D0db\xE6k/", say: "FEED-bak", m: "Comments about how good or bad something is.", ex: ["We read all customer feedback.", "My manager gave me useful feedback.", "I will share your feedback with the product team."], hi: "\u092A\u094D\u0930\u0924\u093F\u0915\u094D\u0930\u093F\u092F\u093E, \u0930\u093E\u092F", him: "\u0915\u093F\u0938\u0940 \u091A\u0940\u091C\u093C \u0915\u0947 \u0905\u091A\u094D\u091B\u0947 \u092F\u093E \u092C\u0941\u0930\u0947 \u0939\u094B\u0928\u0947 \u092A\u0930 \u0926\u0940 \u0917\u0908 \u0930\u093E\u092F\u0964", d: 1, t: ["corp", "cs"] },
@@ -1541,7 +1589,7 @@ body.no-tabbar .toast-root { bottom: calc(var(--safe-b) + 24px); }
   // js/config.js
   var CONFIG = {
     APP_NAME: "WordNest",
-    VERSION: "1.7.0",
+    VERSION: "1.9.0",
     SYNC_URL: "https://script.google.com/macros/s/AKfycbzc890rFv74CY0Ea6oEsqtkTEYIreW3cHRVlwVosweTF5EDM24Ec6tYzSyeNOTAIEEeTA/exec",
     // Set to true only by tools/build-preview.mjs for the in-Claude preview.
     // Preview: no outside network, new words come from Claude, sync is off.
@@ -2238,10 +2286,12 @@ body.no-tabbar .toast-root { bottom: calc(var(--safe-b) + 24px); }
     mine: "Added by you",
     chatgpt: "ChatGPT support",
     email: "Email",
-    mobile: "Phone support"
+    mobile: "Phone support",
+    training: "TP training"
   };
   var topicLabel = (t) => TOPIC_LABEL[t] || (t.startsWith("c:") ? "For you" : null);
-  var CORE_TAGS = /* @__PURE__ */ new Set(["hr"]);
+  var CORE_TAGS = /* @__PURE__ */ new Set(["hr", "training"]);
+  var PRIORITY_TAGS = { training: 2 };
   var actionCount = (history2) => history2.filter((h) => h.k === "n" || h.k === "k").length;
   function cleanAiWords(list, { avoid = [], goalTags = {} } = {}) {
     const skip = new Set(avoid.map((w) => String(w).toLowerCase()));
@@ -2285,7 +2335,7 @@ body.no-tabbar .toast-root { bottom: calc(var(--safe-b) + 24px); }
       this.inflight = /* @__PURE__ */ new Map();
       this.refillPromise = null;
       this.lastAction = null;
-      this.sessionSeed = String(Math.random());
+      this.sessionSeed = dayKey();
       this.lastRefillAdded = null;
       this.serverSuggest = null;
       this.nextRefillAt = 0;
@@ -2350,7 +2400,8 @@ body.no-tabbar .toast-root { bottom: calc(var(--safe-b) + 24px); }
         const mix = tags.reduce((m, t) => Math.max(m, balance.get(t) || 0), 0);
         const ready = this.isReady(c) ? 0.25 : 0;
         const jitter = hash01(c.id + this.sessionSeed) * 0.35;
-        return { c, score: fit + topic * 0.6 + ctx + mix + ready + jitter };
+        const boost = tags.reduce((m, t) => Math.max(m, PRIORITY_TAGS[t] || 0), 0);
+        return { c, score: fit + topic * 0.6 + ctx + mix + ready + jitter + boost };
       });
       scored.sort((a, b) => b.score - a.score);
       return scored.map((s) => s.c);
@@ -2555,6 +2606,7 @@ body.no-tabbar .toast-root { bottom: calc(var(--safe-b) + 24px); }
 GOALS (mix the words across these goals; tag each word with the ids it serves):
 ${goalLines}
 - id "hr": working at a company: meetings, contracts, pay, leave and HR (always useful)
+- id "training": their current job training: emotional intelligence, customer empathy, types and history of AI, AI models, using AI responsibly (top priority)
 
 LEARNER
 - Level about ${this.skill().toFixed(1)} on a 1 to 5 scale (1 very basic, 5 advanced professional).
@@ -2574,8 +2626,8 @@ RULES
 - Never suggest any of these words, they were already shown: ${avoid.slice(-700).join(", ") || "none"}
 
 Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","note":"","present":"","past":"","future":"","hindi":"","hindiMeaning":"","level":3,"goals":[""]}]} with exactly ${count} words.`;
-      const goalTags = { hr: ["hr"] };
-      const contextNames = { hr: TOPIC_LABEL.hr };
+      const goalTags = { hr: ["hr"], training: ["training"] };
+      const contextNames = { hr: TOPIC_LABEL.hr, training: TOPIC_LABEL.training };
       for (const g of goals) {
         goalTags[g.id] = g.tags;
         contextNames[g.id] = g.label;
@@ -2751,20 +2803,20 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
       const tags = new Set(activeGoals(this.store.state.profile).flatMap((g) => g.tags));
       const seen = this.seenWords();
       const before = this.store.pool.length;
-      const keep = [];
+      const keep2 = [];
       for (const p of this.store.pool) {
         const fits = (p.t || []).some((t) => tags.has(t));
-        if (fits || seen.has(p.w.toLowerCase())) keep.push(p);
+        if (fits || seen.has(p.w.toLowerCase())) keep2.push(p);
         else if (p.src !== "seed") delete this.store.cards[p.id];
       }
-      this.store.setPool(keep);
+      this.store.setPool(keep2);
       this.store.touchCards();
       this.store.update((s) => {
         s.model.rot = 0;
       });
       this.refill().catch(() => {
       });
-      return { dropped: before - keep.length };
+      return { dropped: before - keep2.length };
     }
     /**
      * Level setting changed. Early on, restart from the new level.
@@ -2856,7 +2908,7 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
     writeSent(sent);
   }
   function wantedContexts(profile) {
-    const out = /* @__PURE__ */ new Set(["Workplace and HR"]);
+    const out = /* @__PURE__ */ new Set(["TP training", "Workplace and HR"]);
     for (const g of activeGoals(profile)) {
       out.add(g.label);
       for (const t of g.tags) if (TOPIC_LABEL[t]) out.add(TOPIC_LABEL[t]);
@@ -3266,6 +3318,31 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
     });
   }
 
+  // js/uistate.js
+  var PREFIX = "wn.ui.";
+  var uiState = {
+    get(key) {
+      try {
+        const raw = sessionStorage.getItem(PREFIX + key);
+        return raw ? JSON.parse(raw) : null;
+      } catch {
+        return null;
+      }
+    },
+    set(key, value) {
+      try {
+        sessionStorage.setItem(PREFIX + key, JSON.stringify(value));
+      } catch {
+      }
+    },
+    clear(key) {
+      try {
+        sessionStorage.removeItem(PREFIX + key);
+      } catch {
+      }
+    }
+  };
+
   // js/screens/onboarding.js
   var onboarding_exports = {};
   __export(onboarding_exports, {
@@ -3287,6 +3364,7 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
     const { store: store2, engine: engine2, go: go2 } = ctx;
     const p = store2.state.profile;
     const editLang = params.get("edit") === "lang";
+    if (!draft) draft = uiState.get("onboarding");
     if (!draft) draft = { lang: p.lang, goals: p.goals.length || p.custom.length ? [...p.goals] : ["hr"], custom: [...p.custom], level: p.level || "middle", name: p.name };
     let step = params.get("step") || "lang";
     if (step !== "lang" && step !== "signin" && !draft.lang) step = "lang";
@@ -3341,6 +3419,7 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
           go2("welcome", { replace: true });
         } else {
           draft = null;
+          uiState.clear("onboarding");
           toast("Signed in. Your words are here.");
           go2("home", { replace: true });
         }
@@ -3396,7 +3475,11 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
       </div>
     </div>`;
     }
+    const keepDraft = () => {
+      if (draft) uiState.set("onboarding", draft);
+    };
     function draw() {
+      keepDraft();
       root.innerHTML = step === "context" ? viewContext() : step === "name" ? viewName() : step === "signin" ? viewSignIn() : viewLang();
       bindInputs();
     }
@@ -3404,6 +3487,7 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
       const editor = root.querySelector("#goal-editor");
       if (editor) {
         bindGoalEditor(editor, draft, () => {
+          keepDraft();
           const next = root.querySelector('[data-act="ctx-next"]');
           if (next) next.disabled = !goalCount(draft);
         });
@@ -3412,6 +3496,7 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
       if (name) {
         name.addEventListener("input", () => {
           draft.name = name.value;
+          keepDraft();
         });
         name.addEventListener("keydown", (e) => {
           if (e.key === "Enter") finish();
@@ -3431,6 +3516,7 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
         s.model.skill = null;
       });
       draft = null;
+      uiState.clear("onboarding");
       haptic(12);
       go2("home", { replace: true });
     }
@@ -3457,11 +3543,13 @@ Return JSON only: {"words":[{"word":"","pos":"","ipa":"","say":"","meaning":"","
             s.profile.u = Date.now();
           });
           draft = null;
+          uiState.clear("onboarding");
           toast("Saved");
           go2("me", { replace: true });
         } else go2("welcome?step=context");
       } else if (act === "cancel-edit") {
         draft = null;
+        uiState.clear("onboarding");
         go2("me", { replace: true });
       } else if (act === "level") {
         haptic();
@@ -3885,6 +3973,30 @@ Rules: simple meaning (max 15 words), three short sentences that each contain th
     let sinceCheck = 0;
     const checked = /* @__PURE__ */ new Set();
     let animateIn = true;
+    function remember() {
+      if (phase === "card" && card) uiState.set("learn", { phase, id: card.id, sinceCheck });
+      else if (phase === "check" && check) uiState.set("learn", { phase, id: check.card.id, q: check.q, answered: check.answered, sinceCheck });
+    }
+    function restore() {
+      const saved = uiState.get("learn");
+      if (!saved) return false;
+      sinceCheck = saved.sinceCheck || 0;
+      const c = engine2.card(saved.id);
+      if (!c) return false;
+      if (saved.phase === "card" && !store2.state.words[c.id]) {
+        card = c;
+        phase = "card";
+        animateIn = false;
+        return true;
+      }
+      if (saved.phase === "check" && saved.q && store2.state.words[c.id]) {
+        check = { card: c, q: saved.q, answered: saved.answered ?? null };
+        checked.add(c.id);
+        phase = "check";
+        return true;
+      }
+      return false;
+    }
     function header() {
       const n = store2.addedToday();
       const rs = reviewStatus(store2.state, CONFIG.DAILY_REVIEW_SIZE);
@@ -3931,6 +4043,7 @@ Rules: simple meaning (max 15 words), three short sentences that each contain th
     function draw() {
       if (!alive) return;
       root.innerHTML = `${header()}<div class="learn-stage">${body()}</div>`;
+      remember();
     }
     async function loadNext() {
       if (sinceCheck >= CONFIG.CHECK_EVERY) {
@@ -4047,7 +4160,12 @@ Rules: simple meaning (max 15 words), three short sentences that each contain th
         default:
       }
     };
-    loadNext();
+    if (restore()) {
+      draw();
+      if (phase === "card") engine2.prefetch();
+    } else {
+      loadNext();
+    }
     return () => {
       alive = false;
     };
@@ -4065,14 +4183,30 @@ Rules: simple meaning (max 15 words), three short sentences that each contain th
     const reviewedToday = new Set(Object.values(store2.state.words).filter((r) => r.last === today).map((r) => r.id));
     const dailyDone = !!(store2.state.reviews[today] && store2.state.reviews[today].done);
     const isDaily = mode === "daily" && !dailyDone;
-    const recs = pickReview(store2.state.words, CONFIG.DAILY_REVIEW_SIZE, { exclude: isDaily ? /* @__PURE__ */ new Set() : reviewedToday });
-    const items = recs.map((r) => engine2.card(r.id)).filter(Boolean);
-    let queue = items.map((c) => ({ card: c, retry: false }));
-    let i = 0;
-    let answered = null;
-    let q = null;
-    const results = /* @__PURE__ */ new Map();
-    let finished = false;
+    const saved = uiState.get("review");
+    const resume = saved && saved.day === today && saved.mode === mode && saved.items.every((id) => engine2.card(id)) ? saved : null;
+    const items = resume ? resume.items.map((id) => engine2.card(id)) : pickReview(store2.state.words, CONFIG.DAILY_REVIEW_SIZE, { exclude: isDaily ? /* @__PURE__ */ new Set() : reviewedToday }).map((r) => engine2.card(r.id)).filter(Boolean);
+    let queue = resume ? resume.queue.map((x) => ({ card: engine2.card(x.id), retry: x.retry, lastType: x.lastType })) : items.map((c) => ({ card: c, retry: false }));
+    let i = resume ? resume.i : 0;
+    let answered = resume ? resume.answered : null;
+    let q = resume ? resume.q : null;
+    const results = new Map(resume ? resume.results : []);
+    let finished = resume ? !!resume.finished : false;
+    const roundIsDaily = resume ? resume.isDaily : isDaily;
+    function remember() {
+      uiState.set("review", {
+        day: today,
+        mode,
+        isDaily: roundIsDaily,
+        finished,
+        items: items.map((c) => c.id),
+        queue: queue.map((x) => ({ id: x.card.id, retry: x.retry, lastType: x.lastType })),
+        i,
+        answered,
+        q,
+        results: [...results]
+      });
+    }
     function progress() {
       const total = queue.length;
       const pct = total ? Math.round(i / total * 100) : 0;
@@ -4090,6 +4224,7 @@ Rules: simple meaning (max 15 words), three short sentences that each contain th
       root.innerHTML = `${progress()}
       ${renderQuestion(q, { answered, note: item.retry ? "One more try" : "" })}
       ${answered !== null ? renderFeedback(ok, item.card, { cta: i + 1 < queue.length ? "Continue" : "See results" }) : ""}`;
+      remember();
       if (answered !== null) {
         root.querySelector(".feedback")?.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "nearest" });
         root.querySelector('[data-act="continue"]')?.focus({ preventScroll: true });
@@ -4110,7 +4245,7 @@ Rules: simple meaning (max 15 words), three short sentences that each contain th
       root.innerHTML = `<div class="summary">
       <div class="summary-head">
         <p class="summary-score">${ok}/${total}</p>
-        <h1>${isDaily ? "Revision done" : "Practice done"}</h1>
+        <h1>${roundIsDaily ? "Revision done" : "Practice done"}</h1>
         <p>${esc(msg)}</p>
         ${streak ? `<p class="muted small" style="margin-top:8px">${plural(streak, "day", "days")} in a row</p>` : ""}
       </div>
@@ -4124,13 +4259,14 @@ Rules: simple meaning (max 15 words), three short sentences that each contain th
     function finish() {
       finished = true;
       const ok = [...results.values()].filter(Boolean).length;
-      if (isDaily) {
+      if (roundIsDaily) {
         store2.update((s) => {
           s.reviews[today] = { done: true, ok, total: results.size };
         });
       }
       store2.markActive();
       haptic(15);
+      remember();
       drawSummary();
     }
     function answer(idx) {
@@ -4164,17 +4300,27 @@ Rules: simple meaning (max 15 words), three short sentences that each contain th
       if (act === "answer") answer(Number(el.dataset.i));
       else if (act === "continue") next();
       else if (act === "hear") speak(queue[i]?.card.w, queue[i]?.card.audio, el);
-      else if (act === "learn") go2("learn", { replace: true });
-      else if (act === "home") go2("home", { replace: true });
-      else if (act === "close") {
-        if (finished || results.size === 0) return go2("home", { replace: true });
+      else if (act === "learn") {
+        uiState.clear("review");
+        go2("learn", { replace: true });
+      } else if (act === "home") {
+        uiState.clear("review");
+        go2("home", { replace: true });
+      } else if (act === "close") {
+        if (finished || results.size === 0) {
+          uiState.clear("review");
+          return go2("home", { replace: true });
+        }
         const stop = await confirmSheet({
           title: "Stop revision?",
           text: "Your answers so far are saved.",
           okLabel: "Stop",
           cancelLabel: "Keep going"
         });
-        if (stop) go2("home", { replace: true });
+        if (stop) {
+          uiState.clear("review");
+          go2("home", { replace: true });
+        }
       }
     };
     const onKey = (e) => {
@@ -4194,6 +4340,8 @@ Rules: simple meaning (max 15 words), three short sentences that each contain th
         text: Object.keys(store2.state.words).length ? "Words you add today are ready to revise from tomorrow." : "Learn a few new words first. Your first revision starts the next day.",
         actions: '<button class="btn btn-primary" data-act="learn">Learn new words</button>'
       })}`;
+    } else if (finished) {
+      drawSummary();
     } else {
       drawQuestion();
     }
@@ -4205,8 +4353,9 @@ Rules: simple meaning (max 15 words), three short sentences that each contain th
   __export(words_exports, {
     mount: () => mount5
   });
-  var tab = "learning";
-  var query = "";
+  var tab = uiState.get("words")?.tab || "learning";
+  var query = uiState.get("words")?.query || "";
+  var keep = () => uiState.set("words", { tab, query });
   function dueText(rec, today) {
     if (rec.s === "known" || !rec.due) return { text: "", due: false };
     const d = diffDays(today, rec.due);
@@ -4268,6 +4417,7 @@ Rules: simple meaning (max 15 words), three short sentences that each contain th
       const input = root.querySelector("#q");
       input?.addEventListener("input", () => {
         query = input.value;
+        keep();
         root.querySelector("#list").innerHTML = rowsHtml();
       });
     }
@@ -4318,6 +4468,7 @@ Rules: simple meaning (max 15 words), three short sentences that each contain th
       if (!el) return;
       if (el.dataset.act === "tab") {
         tab = el.dataset.tab;
+        keep();
         draw();
       } else if (el.dataset.act === "open") openWord(el.dataset.id);
       else if (el.dataset.act === "learn") go2("learn");
@@ -4584,6 +4735,11 @@ Rules: simple meaning (max 15 words), three short sentences that each contain th
   var cleanup = null;
   var current = null;
   var renderedDay = dayKey();
+  var firstRender = true;
+  if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+  var saveScroll = () => {
+    if (current) uiState.set("scroll", { screen: current, hash: location.hash, y: window.scrollY });
+  };
   function parseHash() {
     const raw = location.hash.replace(/^#\/?/, "");
     const [name, query2] = raw.split("?");
@@ -4599,7 +4755,8 @@ Rules: simple meaning (max 15 words), three short sentences that each contain th
     if (isSheetOpen()) closeSheet();
     sheetHistorySettled().then(navigate);
   }
-  function render() {
+  function render(opts) {
+    const keepScroll = !!(opts && opts.keepScroll);
     const { name, params } = parseHash();
     const onboarded = store.state.profile.onboarded;
     if (!onboarded && name !== "welcome") return go("welcome", { replace: true });
@@ -4615,7 +4772,9 @@ Rules: simple meaning (max 15 words), three short sentences that each contain th
     renderedDay = dayKey();
     appEl.dataset.screen = screen;
     appEl.onclick = null;
-    window.scrollTo(0, 0);
+    const saved = uiState.get("scroll");
+    const y = keepScroll ? window.scrollY : firstRender && saved && saved.hash === location.hash ? saved.y : 0;
+    firstRender = false;
     const ctx = { store, engine, go };
     try {
       cleanup = SCREENS[screen].mount(appEl, ctx, params) || null;
@@ -4626,9 +4785,17 @@ Rules: simple meaning (max 15 words), three short sentences that each contain th
     }
     const rs = reviewStatus(store.state, CONFIG.DAILY_REVIEW_SIZE);
     renderTabbar(TAB_SCREENS.has(screen) ? screen : null, { badge: { home: rs.state === "ready" && screen !== "home" } });
-    appEl.focus({ preventScroll: true });
+    if (!keepScroll) appEl.focus({ preventScroll: true });
+    window.scrollTo(0, y);
+    if (y) requestAnimationFrame(() => window.scrollTo(0, y));
   }
-  window.addEventListener("hashchange", render);
+  function refreshInPlace() {
+    if (isSheetOpen() || !PASSIVE.has(current)) return;
+    render({ keepScroll: true });
+  }
+  window.addEventListener("hashchange", () => render());
+  window.addEventListener("scroll", debounce(saveScroll, 200), { passive: true });
+  window.addEventListener("pagehide", saveScroll);
   document.getElementById("tabbar").addEventListener("click", (e) => {
     const tab2 = e.target.closest("[data-tab]");
     if (!tab2) return;
@@ -4642,7 +4809,7 @@ Rules: simple meaning (max 15 words), three short sentences that each contain th
     if (!syncEnabled(store) || !navigator.onLine) return;
     try {
       await syncNow(store);
-      if (PASSIVE.has(current)) render();
+      refreshInPlace();
     } catch (e) {
       console.warn("Sync failed:", e.message);
     }
@@ -4670,11 +4837,12 @@ Rules: simple meaning (max 15 words), three short sentences that each contain th
   });
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") {
+      saveScroll();
       store.flush();
       if (syncEnabled(store)) syncNow(store).catch(() => {
       });
     } else {
-      if (dayKey() !== renderedDay && current !== "review") render();
+      if (dayKey() !== renderedDay && current !== "review") render({ keepScroll: true });
       backgroundSync();
     }
   });

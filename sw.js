@@ -6,7 +6,7 @@
  * - Word APIs and sync: always network (never cached here).
  * Bump VERSION when you deploy changes so phones pick them up.
  */
-const VERSION = 'wn-1.9.0';
+const VERSION = 'wn-1.10.0';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/styles.css',
   './js/app.js', './js/config.js', './js/goals.js', './js/library.js', './js/status.js', './js/statusview.js', './js/addword.js', './js/uistate.js', './js/utils.js', './js/store.js', './js/srs.js',

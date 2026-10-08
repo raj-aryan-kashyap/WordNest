@@ -71,7 +71,7 @@ Vocabulary_App/
 | `uistate.js` | Keeps what is on screen (word, quiz, search, scroll) if the phone reloads the page |
 | `addword.js` | "Add your own word": look up, fill in details, save |
 | `ui.js`, `components.js` | Buttons, cards, toasts, sheets, icons |
-| `data/seed.js` | The 323 built-in starter words |
+| `data/seed.js` | The 366 built-in starter words |
 | `screens/*.js` | One file per screen: onboarding, home, learn, review, words, me |
 
 ## Upload to GitHub (fastest ways)
@@ -126,7 +126,7 @@ also adds a **WordNest** menu to the sheet with "Check setup" and "Format tabs a
 
 ### Master Library
 
-The Library starts with all 323 starter words (WordNest menu > Add starter words to Library;
+The Library starts with all 366 starter words (WordNest menu > Add starter words to Library;
 it also runs by itself when the tab is first created). After that, every word anyone's app shows goes to the **Library** tab once: context, word,
 level, meaning, how to say it, past / present / future examples, Hindi, source,
 first added date, weekday, who added it and who else uses it. It is sorted by

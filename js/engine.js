@@ -368,7 +368,7 @@ export class Engine {
 GOALS (mix the words across these goals; tag each word with the ids it serves):
 ${goalLines}
 - id "hr": working at a company: meetings, contracts, pay, leave and HR (always useful)
-- id "training": their current job training: emotional intelligence, customer empathy, types and history of AI, AI models, using AI responsibly (top priority)
+- id "training": their current job training: emotional intelligence, customer empathy, types and history of AI, AI models, prompting, RAG, deploying AI in production, using AI responsibly (top priority)
 
 LEARNER
 - Level about ${this.skill().toFixed(1)} on a 1 to 5 scale (1 very basic, 5 advanced professional).
